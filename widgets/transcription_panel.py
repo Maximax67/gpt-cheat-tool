@@ -1,4 +1,12 @@
 import lorem
+import queue
+import threading
+import time
+
+from services.transcribe.SourceTranscriber import SourceTranscriber
+from services.record_audio.AudioRecorder import MicRecorder, SpeakerRecorder
+from services.transcribe.Transcriber import TestTranscriber
+
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -30,6 +38,25 @@ class TranscriptionPanel(QWidget):
         super().__init__()
         self._setup_ui()
         self._init_timers()
+
+        self.audio_queue = queue.Queue()
+        user_record_audio = MicRecorder()
+        user_record_audio.record_into_queue(self.audio_queue)
+
+        time.sleep(2)
+
+        speaker_record_audio = SpeakerRecorder()
+        speaker_record_audio.record_into_queue(self.audio_queue)
+
+        self.model = TestTranscriber()
+        self.transcriber = SourceTranscriber(
+            user_record_audio.source, speaker_record_audio.source, self.model
+        )
+        self.transcribe_thread = threading.Thread(
+            target=self.transcriber.transcribe_audio_queue, args=(self.audio_queue,)
+        )
+        self.transcribe_thread.daemon = True
+        self.transcribe_thread.start()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)

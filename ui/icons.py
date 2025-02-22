@@ -1,6 +1,6 @@
-from PySide6.QtCore import QFile, QIODevice
-from PySide6.QtGui import Qt, QIcon, QPainter, QColor, QPixmap
+from PySide6.QtGui import Qt, QIcon, QColor, QPainter, QImage, QPixmap
 from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtCore import QSize
 
 
 COPY_ICON = QIcon("./assets/icons/copy.svg")
@@ -16,30 +16,27 @@ SPEAKER_OFF_ICON = QIcon("./assets/icons/volume-x.svg")
 
 
 def recolor_svg_icon(icon_path: str, color: QColor) -> QIcon:
-    file = QFile(icon_path)
-    if not file.open(QIODevice.ReadOnly):
-        return QIcon()  # Return an empty icon if the file can't be read
+    renderer = QSvgRenderer(icon_path)
 
-    # Create an SVG renderer
-    renderer = QSvgRenderer(file)
+    size = renderer.defaultSize()
+    if not size.isValid() or size.isEmpty():
+        size = QSize(256, 256)
 
-    # Create a QPixmap with the size of the SVG
-    pixmap = QPixmap(renderer.defaultSize())
-    pixmap.fill(Qt.transparent)  # Fill the pixmap with transparency
+    image = QImage(size, QImage.Format_ARGB32)
+    image.fill(Qt.transparent)
 
-    # Create a painter to draw on the pixmap
-    painter = QPainter(pixmap)
-    renderer.render(painter)  # Render the SVG to the pixmap
+    painter = QPainter(image)
+    renderer.render(painter)
     painter.end()
 
-    # Recolor the rendered pixmap using the desired color
-    pixmap = pixmap.copy()  # Make a copy of the pixmap for further manipulation
-    painter.begin(pixmap)
+    recolored = image.copy()
+    painter = QPainter(recolored)
+
     painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
-    painter.fillRect(pixmap.rect(), color)
+    painter.fillRect(recolored.rect(), color)
     painter.end()
 
-    return QIcon(pixmap)
+    return QIcon(QPixmap.fromImage(recolored))
 
 
 def update_icon_colors(theme: str):
