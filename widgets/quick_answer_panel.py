@@ -56,7 +56,7 @@ class QuickAnswerPanel(QWidget):
 
         self.generate_answer_button = QPushButton()
         self.generate_answer_button.setIcon(REFRESH_ICON)
-        self.generate_answer_button.setToolTip("Pause Transcription")
+        self.generate_answer_button.setToolTip("Regenerate answer")
         self.generate_answer_button.clicked.connect(self._toggle_generate)
         button_layout.addWidget(self.generate_answer_button)
 
