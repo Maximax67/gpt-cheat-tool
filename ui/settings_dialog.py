@@ -72,8 +72,7 @@ class SettingsDialog(QDialog):
         main_layout.addWidget(close_button, alignment=Qt.AlignRight)
 
     def on_theme_changed(self, theme: str):
-        app = QApplication.instance()
-        switch_theme(app, theme.lower())
+        switch_theme(theme.lower())
         update_icon_colors(theme.lower())
 
     def on_audio_input_changed(self, device_name: str):

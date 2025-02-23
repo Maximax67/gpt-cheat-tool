@@ -2,3 +2,4 @@ pyside6
 lorem
 markdown
 pyaudiowpatch
+pyqtdarktheme

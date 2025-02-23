@@ -42,25 +42,26 @@ class ChatPanel(QWidget):
         input_layout = QHBoxLayout()
         self.input_text = QTextEdit(self)
         self.input_text.setPlaceholderText("Type your message...")
-        self.input_text.setFixedHeight(50)  # initial height
-        self.input_text.textChanged.connect(self.adjust_input_height)
+
+        self.input_text.setFixedHeight(35)
+        self.input_text.textChanged.connect(self._adjust_input_height)
 
         self.send_button = QPushButton()
         self.send_button.setIcon(SEND_ICON)
         self.send_button.setToolTip("Send text")
-        self.send_button.clicked.connect(self.handle_send)
+        self.send_button.clicked.connect(self._handle_send)
 
         input_layout.addWidget(self.input_text)
         input_layout.addWidget(self.send_button)
         self.layout.addLayout(input_layout)
 
-    def adjust_input_height(self):
+    def _adjust_input_height(self):
         """Adjust the height of the input box based on its content."""
         doc_height = self.input_text.document().size().height()
-        new_height = max(50, min(150, doc_height + 10))
+        new_height = max(35, min(150, doc_height + 10))
         self.input_text.setFixedHeight(new_height)
 
-    def handle_send(self):
+    def _handle_send(self):
         """Handle sending a message: add user message and simulate bot response."""
         text = self.input_text.toPlainText().strip()
         if text:
@@ -81,6 +82,7 @@ class ChatPanel(QWidget):
     def add_user_message(self, text):
         """Display a user message aligned to the right."""
         msg_widget = QLabel(text, self)
+        msg_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
         msg_widget.setWordWrap(True)
         container = QFrame(self)
         container_layout = QVBoxLayout(container)
@@ -96,6 +98,7 @@ class ChatPanel(QWidget):
         msg_widget = QLabel(html_text, self)
         msg_widget.setWordWrap(True)
         msg_widget.setTextFormat(Qt.RichText)
+        msg_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         # Create buttons for regenerating and copying the message
         regenerate_btn = QPushButton("Regenerate", self)

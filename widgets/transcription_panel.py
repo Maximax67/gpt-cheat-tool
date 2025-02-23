@@ -10,34 +10,25 @@ from services.transcribe.Transcriber import TestTranscriber
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QHBoxLayout,
     QPushButton,
-    QListWidget,
-    QListWidgetItem,
+    QHBoxLayout,
 )
 from PySide6.QtCore import QTimer, Signal
-from widgets.transcription_block import TranscriptionBlockWidget
-from ui.settings_dialog import SettingsDialog
-from ui.icons import (
-    MIC_ON_ICON,
-    MIC_OFF_ICON,
-    SPEAKER_ON_ICON,
-    SPEAKER_OFF_ICON,
-    PAUSE_ICON,
-    SETTINGS_ICON,
-    SEND_ICON,
-    PLAY_ICON
-)
+from ui.icons import DELETE_ICON, SELECT_ALL_ICON, SEND_ICON
+from widgets.transcription_list import TranscriptionListWidget
 
 
 class TranscriptionPanel(QWidget):
-    # Signal emitted when the user chooses to forward selected transcription blocks.
-    forwardSignal = Signal(str)
+    forward_signal = Signal(str)
 
     def __init__(self):
         super().__init__()
         self._setup_ui()
         self._init_timers()
+
+        # Use flags to store the state of mic and speaker.
+        self.mic_enabled = True
+        self.speaker_enabled = True
 
         self.audio_queue = queue.Queue()
         user_record_audio = MicRecorder()
@@ -58,53 +49,40 @@ class TranscriptionPanel(QWidget):
         self.transcribe_thread.daemon = True
         self.transcribe_thread.start()
 
+        self.transcription_list.select_all_changed.connect(self._set_select_button_checked)
+
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
 
         # Use a QListWidget to hold transcription blocks.
-        self.transcription_list = QListWidget()
-        self.transcription_list.setSelectionMode(QListWidget.ExtendedSelection)
-        layout.addWidget(self.transcription_list)
+        self.transcription_list = TranscriptionListWidget()
+        main_layout.addWidget(self.transcription_list)
 
-        # Control buttons row.
-        controls_layout = QHBoxLayout()
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(5)
+        button_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.mic_button = QPushButton()
-        self.mic_button.setCheckable(True)
-        self.mic_button.setChecked(True)
-        self.mic_button.setIcon(MIC_ON_ICON)
-        self.mic_button.setToolTip("Toggle Mic")
-        self.mic_button.clicked.connect(self._toggle_mic)
+        self.select_button = QPushButton()
+        self.select_button.setCheckable(True)
+        self.select_button.setIcon(SELECT_ALL_ICON)
+        self.select_button.setToolTip("Select All")
+        self.select_button.clicked.connect(self._on_select_clicked)
+        button_layout.addWidget(self.select_button)
 
-        self.speaker_button = QPushButton()
-        self.speaker_button.setCheckable(True)
-        self.speaker_button.setChecked(True)
-        self.speaker_button.setIcon(SPEAKER_ON_ICON)
-        self.speaker_button.setToolTip("Toggle Speaker")
-        self.speaker_button.clicked.connect(self._toggle_speaker)
-
-        self.pause_button = QPushButton()
-        self.pause_button.setCheckable(True)
-        self.pause_button.setIcon(PAUSE_ICON)
-        self.pause_button.setToolTip("Pause Transcription")
-        self.pause_button.clicked.connect(self._toggle_pause)
-
-        self.settings_button = QPushButton()
-        self.settings_button.setIcon(SETTINGS_ICON)
-        self.settings_button.setToolTip("Settings")
-        self.settings_button.clicked.connect(self._open_settings)
+        self.delete_selected_button = QPushButton()
+        self.delete_selected_button.setIcon(DELETE_ICON)
+        self.delete_selected_button.setToolTip("Delete Selected")
+        self.delete_selected_button.clicked.connect(self._on_delete_selected_clicked)
+        button_layout.addWidget(self.delete_selected_button)
 
         self.forward_button = QPushButton()
         self.forward_button.setIcon(SEND_ICON)
         self.forward_button.setToolTip("Forward Selected")
-        self.forward_button.clicked.connect(self._forward_selected)
+        self.forward_button.clicked.connect(self.forward_selected)
+        button_layout.addWidget(self.forward_button)
 
-        controls_layout.addWidget(self.mic_button)
-        controls_layout.addWidget(self.speaker_button)
-        controls_layout.addWidget(self.pause_button)
-        controls_layout.addWidget(self.settings_button)
-        controls_layout.addWidget(self.forward_button)
-        layout.addLayout(controls_layout)
+        main_layout.addLayout(button_layout)
 
     def _init_timers(self):
         # Simulate transcription updates every 5 seconds.
@@ -114,65 +92,53 @@ class TranscriptionPanel(QWidget):
         self.transcription_timer.start()
 
     def _transcribe_audio(self):
-        if self.pause_button.isChecked():
-            return
+        if self.mic_enabled:
+            mic_text = lorem.sentence()
+            self.transcription_list.add_transcription_block(mic_text, source="mic")
 
-        if self.mic_button.isChecked():
-            mic_text = lorem.text()
-            self._add_transcription_block(mic_text, source="mic")
-
-        if self.speaker_button.isChecked():
+        if self.speaker_enabled:
             speaker_text = lorem.text()
-            self._add_transcription_block(speaker_text, source="speaker")
+            self.transcription_list.add_transcription_block(
+                speaker_text, source="speaker"
+            )
 
-    def _add_transcription_block(self, text, source="mic"):
-        block = TranscriptionBlockWidget(text, source)
-        block.deleteRequested.connect(self._remove_block)
-        item = QListWidgetItem()
-        # Use the widget's sizeHint; height adjusts to its content.
-        item.setSizeHint(block.sizeHint())
-        self.transcription_list.addItem(item)
-        self.transcription_list.setItemWidget(item, block)
+    def set_mic_enabled(self, enabled: bool):
+        self.mic_enabled = enabled
 
-    def _remove_block(self, widget):
-        # Safely remove the widget from the list.
-        for i in range(self.transcription_list.count()):
-            item = self.transcription_list.item(i)
-            if self.transcription_list.itemWidget(item) is widget:
-                self.transcription_list.takeItem(i)
-                widget.deleteLater()
-                break
+    def set_speaker_enabled(self, enabled: bool):
+        self.speaker_enabled = enabled
 
-    def _toggle_mic(self):
-        if self.mic_button.isChecked():
-            self.mic_button.setIcon(MIC_ON_ICON)
+    def _set_select_button_checked(self, checked: bool):
+        self.select_button.setChecked(checked)
+
+    def _on_select_clicked(self):
+        if self.transcription_list.get_is_all_selected():
+            self.transcription_list.deselect_all()
         else:
-            self.mic_button.setIcon(MIC_OFF_ICON)
+            self.transcription_list.select_all()
+            if not self.transcription_list.get_is_all_selected():
+                self.select_button.setChecked(False)
 
-    def _toggle_speaker(self):
-        if self.speaker_button.isChecked():
-            self.speaker_button.setIcon(SPEAKER_ON_ICON)
-        else:
-            self.speaker_button.setIcon(SPEAKER_OFF_ICON)
-
-    def _toggle_pause(self):
-        if self.pause_button.isChecked():
-            self.pause_button.setIcon(PLAY_ICON)
-        else:
-            self.pause_button.setIcon(PAUSE_ICON)
-
-    def _open_settings(self):
-        dialog = SettingsDialog(self)
-        dialog.exec()
-
-    def _forward_selected(self):
-        selected_items = self.transcription_list.selectedItems()
-        if not selected_items:
-            return
-        combined_text = ""
+    def _on_delete_selected_clicked(self):
+        selected_items = self.transcription_list.selected_items()
         for item in selected_items:
-            block = self.transcription_list.itemWidget(item)
-            if block:
-                combined_text += block.get_text() + "\n"
+            self.transcription_list.remove_block(item)
+
+        self.select_button.setChecked(False)
+
+    def forward_selected(self):
+        """
+        Gathers the selected transcription blocks and emits them via the forward_signal.
+        """
+        selected_blocks = self.transcription_list.selected_items()
+        if not selected_blocks:
+            return
+
+        combined_text = ""
+        for block in selected_blocks:
+            combined_text += block.get_text() + "\n"
         if combined_text:
-            self.forwardSignal.emit(combined_text.strip())
+            self.forward_signal.emit(combined_text.strip())
+
+        self.transcription_list.deselect_all()
+        self.select_button.setChecked(False)

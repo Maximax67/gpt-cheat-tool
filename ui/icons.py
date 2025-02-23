@@ -6,10 +6,10 @@ from PySide6.QtCore import QSize
 COPY_ICON = QIcon("./assets/icons/copy.svg")
 MIC_OFF_ICON = QIcon("./assets/icons/mic-off.svg")
 MIC_ON_ICON = QIcon("./assets/icons/mic.svg")
-PAUSE_ICON = QIcon("./assets/icons/pause.svg")
-PLAY_ICON = QIcon("./assets/icons/play.svg")
+REFRESH_ICON = QIcon("./assets/icons/refresh-cw.svg")
 SEND_ICON = QIcon("./assets/icons/send.svg")
 SETTINGS_ICON = QIcon("./assets/icons/settings.svg")
+SELECT_ALL_ICON = QIcon("./assets/icons/check-square.svg")
 DELETE_ICON = QIcon("./assets/icons/trash-2.svg")
 SPEAKER_ON_ICON = QIcon("./assets/icons/volume-2.svg")
 SPEAKER_OFF_ICON = QIcon("./assets/icons/volume-x.svg")
@@ -42,15 +42,15 @@ def recolor_svg_icon(icon_path: str, color: QColor) -> QIcon:
 def update_icon_colors(theme: str):
     icon_color = QColor(Qt.white) if theme == "dark" else QColor(Qt.black)
 
-    global COPY_ICON, MIC_OFF_ICON, MIC_ON_ICON, PAUSE_ICON, PLAY_ICON, SEND_ICON, SETTINGS_ICON, DELETE_ICON, SPEAKER_ON_ICON, SPEAKER_OFF_ICON
+    global COPY_ICON, MIC_OFF_ICON, MIC_ON_ICON, REFRESH_ICON, SEND_ICON, SETTINGS_ICON, SELECT_ALL_ICON, DELETE_ICON, SPEAKER_ON_ICON, SPEAKER_OFF_ICON
 
     COPY_ICON = recolor_svg_icon("./assets/icons/copy.svg", icon_color)
     MIC_OFF_ICON = recolor_svg_icon("./assets/icons/mic-off.svg", icon_color)
     MIC_ON_ICON = recolor_svg_icon("./assets/icons/mic.svg", icon_color)
-    PAUSE_ICON = recolor_svg_icon("./assets/icons/pause.svg", icon_color)
-    PLAY_ICON = recolor_svg_icon("./assets/icons/play.svg", icon_color)
+    REFRESH_ICON = recolor_svg_icon("./assets/icons/refresh-cw.svg", icon_color)
     SEND_ICON = recolor_svg_icon("./assets/icons/send.svg", icon_color)
     SETTINGS_ICON = recolor_svg_icon("./assets/icons/settings.svg", icon_color)
+    SELECT_ALL_ICON = recolor_svg_icon("./assets/icons/check-square.svg", icon_color)
     DELETE_ICON = recolor_svg_icon("./assets/icons/trash-2.svg", icon_color)
     SPEAKER_ON_ICON = recolor_svg_icon("./assets/icons/volume-2.svg", icon_color)
     SPEAKER_OFF_ICON = recolor_svg_icon("./assets/icons/volume-x.svg", icon_color)
