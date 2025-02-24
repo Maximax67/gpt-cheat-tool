@@ -6,7 +6,8 @@ import time
 from services.record_audio.AudioSourceTypes import AudioSourceTypes
 from services.transcribe.SourceTranscriber import SourceTranscriber
 from services.record_audio.AudioRecorder import MicRecorder, SpeakerRecorder
-from services.transcribe.Transcriber import TestTranscriber
+from services.transcribe.Transcriber import GroqTranscriber
+from services.groq import GroqClient
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
 from PySide6.QtCore import Signal, QMetaObject, Qt, Q_ARG, Slot
@@ -33,7 +34,7 @@ class TranscriptionPanel(QWidget):
         speaker_record_audio = SpeakerRecorder()
         speaker_record_audio.record_into_queue(self.audio_queue)
 
-        self.model = TestTranscriber()
+        self.model = GroqTranscriber(GroqClient)
         self.transcriber = SourceTranscriber(
             user_record_audio.source, speaker_record_audio.source, self.model
         )

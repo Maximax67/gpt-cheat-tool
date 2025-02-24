@@ -1,16 +1,13 @@
 import wave
-import threading
 import io
 from queue import Queue
 from datetime import timedelta
-from heapq import merge
 from services.record_audio.AudioSourceTypes import AudioSourceTypes
 from services.transcribe.Transcriber import BaseTranscriber
 import services.record_audio.custom_speech_recognition as sr
 import pyaudiowpatch as pyaudio
 
 PHRASE_TIMEOUT = 3.05
-MAX_PHRASES = 10
 
 
 class SourceTranscriber:
@@ -55,11 +52,11 @@ class SourceTranscriber:
                     source_info["last_sample"]
                 )
 
-                text = self.transcriber.get_transcription(wav_buffer)
+                text = self.transcriber.get_transcription(wav_buffer, "wav")
             except Exception as e:
                 print(e)
 
-            if text != "" and text.lower() != "you":
+            if text != "" and text.lower() != "you" and text.lower() != "thank you.":
                 self.update_transcript(source_type, text, callback)
 
     def update_last_sample_and_phrase_status(self, source_type, data, time_spoken):
