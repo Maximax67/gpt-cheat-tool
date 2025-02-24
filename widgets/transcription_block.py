@@ -8,13 +8,13 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 from services.record_audio.AudioSourceTypes import AudioSourceTypes
-from ui.icons import COPY_ICON, DELETE_ICON
+from ui.icons import COPY_ICON, DELETE_ICON, SEND_ICON
 
 
 class TranscriptionBlockWidget(QWidget):
-    # Signal emitted when the delete action is triggered.
     delete_requested = Signal(QWidget)
     selected_changed_by_click = Signal(bool)
+    forward_signal = Signal(str)
 
     def __init__(self, text: str, source: AudioSourceTypes):
         super().__init__()
@@ -47,6 +47,10 @@ class TranscriptionBlockWidget(QWidget):
 
     def get_text(self) -> str:
         return self.text
+
+    def set_text(self, text):
+        self.text = text
+        self.label.setText(text)
 
     def _update_selection_style(self):
         """Update the style to indicate selection."""
@@ -84,9 +88,12 @@ class TranscriptionBlockWidget(QWidget):
         menu = QMenu(self)
         copy_action = menu.addAction(COPY_ICON, "Copy")
         delete_action = menu.addAction(DELETE_ICON, "Delete")
+        forward_action = menu.addAction(SEND_ICON, "Forward to chat")
 
         action = menu.exec(position)
         if action == copy_action:
             self.copy_text()
         elif action == delete_action:
             self.delete_self()
+        elif action == forward_action:
+            self.forward_signal.emit(self.text)

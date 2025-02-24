@@ -1,20 +1,15 @@
-import lorem
 import queue
 import threading
 import time
+
 
 from services.record_audio.AudioSourceTypes import AudioSourceTypes
 from services.transcribe.SourceTranscriber import SourceTranscriber
 from services.record_audio.AudioRecorder import MicRecorder, SpeakerRecorder
 from services.transcribe.Transcriber import TestTranscriber
 
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QPushButton,
-    QHBoxLayout,
-)
-from PySide6.QtCore import QTimer, Signal
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
+from PySide6.QtCore import Signal, QMetaObject, Qt, Q_ARG, Slot
 from ui.icons import DELETE_ICON, SELECT_ALL_ICON, SEND_ICON
 from widgets.transcription_list import SelectionStates, TranscriptionListWidget
 
@@ -25,9 +20,7 @@ class TranscriptionPanel(QWidget):
     def __init__(self):
         super().__init__()
         self._setup_ui()
-        self._init_timers()
 
-        # Use flags to store the state of mic and speaker.
         self.mic_enabled = True
         self.speaker_enabled = True
 
@@ -45,7 +38,8 @@ class TranscriptionPanel(QWidget):
             user_record_audio.source, speaker_record_audio.source, self.model
         )
         self.transcribe_thread = threading.Thread(
-            target=self.transcriber.transcribe_audio_queue, args=(self.audio_queue,)
+            target=self.transcriber.transcribe_audio_queue,
+            args=(self.audio_queue, self._handle_transcript_update),
         )
         self.transcribe_thread.daemon = True
         self.transcribe_thread.start()
@@ -53,12 +47,12 @@ class TranscriptionPanel(QWidget):
         self.transcription_list.selection_changed.connect(
             self._handle_selection_changed
         )
+        self.transcription_list.forward_message_signal.connect(self.forward_signal.emit)
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
 
-        # Use a QListWidget to hold transcription blocks.
         self.transcription_list = TranscriptionListWidget()
         main_layout.addWidget(self.transcription_list)
 
@@ -91,25 +85,25 @@ class TranscriptionPanel(QWidget):
 
         main_layout.addLayout(button_layout)
 
-    def _init_timers(self):
-        # Simulate transcription updates every 5 seconds.
-        self.transcription_timer = QTimer()
-        self.transcription_timer.setInterval(5000)
-        self.transcription_timer.timeout.connect(self._transcribe_audio)
-        self.transcription_timer.start()
+    @Slot(str, str, bool)
+    def update_transcription(self, source: str, text: str, is_new_phrase: bool):
+        source_type = AudioSourceTypes(source)
+        if is_new_phrase:
+            self.transcription_list.add_transcription_block(source_type, text)
+        else:
+            self.transcription_list.update_last_block_text(source_type, text)
 
-    def _transcribe_audio(self):
-        if self.mic_enabled:
-            mic_text = lorem.sentence()
-            self.transcription_list.add_transcription_block(
-                mic_text, source=AudioSourceTypes.MIC
-            )
-
-        if self.speaker_enabled:
-            speaker_text = lorem.text()
-            self.transcription_list.add_transcription_block(
-                speaker_text, source=AudioSourceTypes.SPEAKERS
-            )
+    def _handle_transcript_update(
+        self, source: AudioSourceTypes, text: str, is_new_phrase: bool
+    ):
+        QMetaObject.invokeMethod(
+            self,
+            "update_transcription",
+            Qt.QueuedConnection,
+            Q_ARG(str, source.value),
+            Q_ARG(str, text),
+            Q_ARG(bool, is_new_phrase),
+        )
 
     def set_mic_enabled(self, enabled: bool):
         self.mic_enabled = enabled
@@ -125,13 +119,13 @@ class TranscriptionPanel(QWidget):
             if not self.transcription_list.get_is_all_selected():
                 self.select_button.setChecked(False)
 
-    def _handle_selection_changed(self, selction_state: SelectionStates):
-        if selction_state == SelectionStates.ALL_SELECTED:
+    def _handle_selection_changed(self, selection_state: SelectionStates):
+        if selection_state == SelectionStates.ALL_SELECTED:
             self.select_button.setChecked(True)
         else:
             self.select_button.setChecked(False)
 
-        if selction_state == SelectionStates.ALL_DESELECTED:
+        if selection_state == SelectionStates.ALL_DESELECTED:
             self.forward_button.setDisabled(True)
             self.delete_selected_button.setDisabled(True)
             return
@@ -140,18 +134,15 @@ class TranscriptionPanel(QWidget):
         self.delete_selected_button.setDisabled(False)
 
     def forward_selected(self):
-        """
-        Gathers the selected transcription blocks and emits them via the forward_signal.
-        """
         selected_blocks = self.transcription_list.selected_items()
         if not selected_blocks:
             return
 
-        combined_text = ""
-        for block in selected_blocks:
-            combined_text += block.get_text() + "\n"
+        combined_text = "".join(
+            block.get_text() + "\n" for block in selected_blocks
+        ).strip()
         if combined_text:
-            self.forward_signal.emit(combined_text.strip())
+            self.forward_signal.emit(combined_text)
 
         self.transcription_list.deselect_all()
         self.select_button.setChecked(False)

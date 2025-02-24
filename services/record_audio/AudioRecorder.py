@@ -69,7 +69,7 @@ class MicRecorder(BaseRecorder):
 
 
 class SpeakerRecorder(BaseRecorder):
-    source_type = AudioSourceTypes.SPEAKERS
+    source_type = AudioSourceTypes.SPEAKER
 
     def __init__(self, device_index=None):
         with pyaudio.PyAudio() as p:

@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Dict, Optional
 from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout
 from PySide6.QtCore import Qt, QTimer, Signal
 from services.record_audio.AudioSourceTypes import AudioSourceTypes
@@ -13,6 +14,7 @@ class SelectionStates(Enum):
 
 class TranscriptionListWidget(QScrollArea):
     selection_changed = Signal(SelectionStates)
+    forward_message_signal = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -28,13 +30,21 @@ class TranscriptionListWidget(QScrollArea):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._is_all_selected = False
         self._is_some_selected = False
+        self._last_blocks_by_source: Dict[
+            AudioSourceTypes, Optional[TranscriptionBlockWidget]
+        ] = {
+            AudioSourceTypes.MIC: None,
+            AudioSourceTypes.SPEAKER: None,
+        }
 
-    def add_transcription_block(self, text: str, source: AudioSourceTypes):
+    def add_transcription_block(self, source: AudioSourceTypes, text: str):
         block = TranscriptionBlockWidget(text, source)
         block.delete_requested.connect(self.remove_block)
         block.selected_changed_by_click.connect(
             self._handle_block_selected_changed_by_click
         )
+        block.forward_signal.connect(self.forward_message_signal.emit)
+        self._last_blocks_by_source[source] = block
         self.layout.addWidget(block)
 
         if self._is_all_selected:
@@ -42,6 +52,14 @@ class TranscriptionListWidget(QScrollArea):
             self.selection_changed.emit(SelectionStates.SOME_SELECTED)
 
         self.scroll_to_bottom()
+
+    def update_last_block_text(self, source: AudioSourceTypes, text: str):
+        block = self._last_blocks_by_source.get(source)
+        if block:
+            block.set_text(text)
+            return
+
+        self.add_transcription_block(source, text)
 
     def _handle_block_selected_changed_by_click(self, selected: bool):
         if not selected:
@@ -73,6 +91,10 @@ class TranscriptionListWidget(QScrollArea):
             self.selection_changed.emit(SelectionStates.SOME_SELECTED)
 
     def _remove_widget(self, widget: TranscriptionBlockWidget):
+        audio_source = widget.source
+        if self._last_blocks_by_source[audio_source] == widget:
+            self._last_blocks_by_source[audio_source] = None
+
         self.layout.removeWidget(widget)
         widget.deleteLater()
 
