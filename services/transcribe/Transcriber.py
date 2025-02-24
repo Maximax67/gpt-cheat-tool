@@ -22,9 +22,11 @@ class GroqTranscriber(BaseTranscriber):
         self.client = client
 
     def get_transcription(self, buffer: BytesIO, file_extension: str) -> str:
+        print("API REQUEST")
         transcription = self.client.audio.transcriptions.create(
             file=(f"a.{file_extension}", buffer),
             model="whisper-large-v3-turbo",
         )
+        print("API RESPONSE: ", transcription.text)
 
         return transcription.text

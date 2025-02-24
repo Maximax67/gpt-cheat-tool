@@ -7,7 +7,8 @@ from services.transcribe.Transcriber import BaseTranscriber
 import services.record_audio.custom_speech_recognition as sr
 import pyaudiowpatch as pyaudio
 
-PHRASE_TIMEOUT = 3.05
+PHRASE_TIMEOUT = 5
+MAX_PHRASE_LENGTH = 17
 
 
 class SourceTranscriber:
@@ -25,6 +26,7 @@ class SourceTranscriber:
                 "sample_width": mic_source.SAMPLE_WIDTH,
                 "channels": mic_source.channels,
                 "last_sample": bytes(),
+                "first_spoken": None,
                 "last_spoken": None,
                 "new_phrase": True,
                 "process_data_func": self.process_mic_data,
@@ -34,6 +36,7 @@ class SourceTranscriber:
                 "sample_width": speaker_source.SAMPLE_WIDTH,
                 "channels": speaker_source.channels,
                 "last_sample": bytes(),
+                "first_spoken": None,
                 "last_spoken": None,
                 "new_phrase": True,
                 "process_data_func": self.process_speaker_data,
@@ -52,7 +55,7 @@ class SourceTranscriber:
                     source_info["last_sample"]
                 )
 
-                text = self.transcriber.get_transcription(wav_buffer, "wav")
+                text = self.transcriber.get_transcription(wav_buffer, "wav").strip()
             except Exception as e:
                 print(e)
 
@@ -61,12 +64,31 @@ class SourceTranscriber:
 
     def update_last_sample_and_phrase_status(self, source_type, data, time_spoken):
         source_info = self.audio_sources[source_type]
-        if source_info["last_spoken"] and time_spoken - source_info[
-            "last_spoken"
-        ] > timedelta(seconds=PHRASE_TIMEOUT):
+        last_spoken = source_info["last_spoken"]
+        first_spoken = source_info["first_spoken"]
+
+        if not first_spoken:
+            first_spoken = last_spoken
+            source_info["first_spoken"] = last_spoken
+
+        if last_spoken and first_spoken:
+            print(time_spoken - first_spoken)
+            print(time_spoken - first_spoken < timedelta(seconds=MAX_PHRASE_LENGTH))
+
+        if (
+            last_spoken
+            and first_spoken
+            and (
+                time_spoken - last_spoken > timedelta(seconds=PHRASE_TIMEOUT)
+                or time_spoken - first_spoken > timedelta(seconds=MAX_PHRASE_LENGTH)
+            )
+        ):
+            print("NEW PHRASE")
             source_info["last_sample"] = bytes()
             source_info["new_phrase"] = True
+            source_info["first_spoken"] = time_spoken
         else:
+            print("UPDATE OLD PHRASE")
             source_info["new_phrase"] = False
 
         source_info["last_sample"] += data
@@ -102,6 +124,8 @@ class SourceTranscriber:
         source_info = self.audio_sources[source_type]
 
         if source_info["new_phrase"]:
+            print("NEW TRANSCRIPT BLOCK: ", text)
             callback(source_type, text, True)
         else:
+            print("UPDATE TRANSCRIPT: ", text)
             callback(source_type, text, False)

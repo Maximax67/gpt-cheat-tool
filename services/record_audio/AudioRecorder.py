@@ -5,7 +5,7 @@ import pyaudiowpatch as pyaudio
 import services.record_audio.custom_speech_recognition as sr
 from services.record_audio.AudioSourceTypes import AudioSourceTypes
 
-RECORD_TIMEOUT = 3
+RECORD_TIMEOUT = 4
 ENERGY_THRESHOLD = 1000
 DYNAMIC_ENERGY_THRESHOLD = False
 

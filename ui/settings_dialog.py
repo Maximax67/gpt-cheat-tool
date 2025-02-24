@@ -5,7 +5,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QComboBox,
-    QApplication,
     QGroupBox,
 )
 from PySide6.QtCore import Qt
