@@ -1,17 +1,13 @@
-from enum import Enum
 from queue import Queue
-import services.record_audio.custom_speech_recognition as sr
-import pyaudiowpatch as pyaudio
 from datetime import datetime
+import pyaudiowpatch as pyaudio
+
+import services.record_audio.custom_speech_recognition as sr
+from services.record_audio.AudioSourceTypes import AudioSourceTypes
 
 RECORD_TIMEOUT = 3
 ENERGY_THRESHOLD = 1000
 DYNAMIC_ENERGY_THRESHOLD = False
-
-
-class SourceTypes(Enum):
-    MIC = "MIC"
-    SPEAKERS = "SPEAKERS"
 
 
 class BaseRecorder:
@@ -56,7 +52,7 @@ class BaseRecorder:
 
 
 class MicRecorder(BaseRecorder):
-    source_type = SourceTypes.MIC
+    source_type = AudioSourceTypes.MIC
 
     def __init__(self, device_index=None):
         with pyaudio.PyAudio() as p:
@@ -73,7 +69,7 @@ class MicRecorder(BaseRecorder):
 
 
 class SpeakerRecorder(BaseRecorder):
-    source_type = SourceTypes.SPEAKERS
+    source_type = AudioSourceTypes.SPEAKERS
 
     def __init__(self, device_index=None):
         with pyaudio.PyAudio() as p:

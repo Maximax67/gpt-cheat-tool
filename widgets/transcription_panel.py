@@ -3,6 +3,7 @@ import queue
 import threading
 import time
 
+from services.record_audio.AudioSourceTypes import AudioSourceTypes
 from services.transcribe.SourceTranscriber import SourceTranscriber
 from services.record_audio.AudioRecorder import MicRecorder, SpeakerRecorder
 from services.transcribe.Transcriber import TestTranscriber
@@ -15,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QTimer, Signal
 from ui.icons import DELETE_ICON, SELECT_ALL_ICON, SEND_ICON
-from widgets.transcription_list import TranscriptionListWidget
+from widgets.transcription_list import SelectionStates, TranscriptionListWidget
 
 
 class TranscriptionPanel(QWidget):
@@ -49,7 +50,9 @@ class TranscriptionPanel(QWidget):
         self.transcribe_thread.daemon = True
         self.transcribe_thread.start()
 
-        self.transcription_list.select_all_changed.connect(self._set_select_button_checked)
+        self.transcription_list.selection_changed.connect(
+            self._handle_selection_changed
+        )
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -71,12 +74,16 @@ class TranscriptionPanel(QWidget):
         button_layout.addWidget(self.select_button)
 
         self.delete_selected_button = QPushButton()
+        self.delete_selected_button.setDisabled(True)
         self.delete_selected_button.setIcon(DELETE_ICON)
         self.delete_selected_button.setToolTip("Delete Selected")
-        self.delete_selected_button.clicked.connect(self._on_delete_selected_clicked)
+        self.delete_selected_button.clicked.connect(
+            self.transcription_list.remove_selected
+        )
         button_layout.addWidget(self.delete_selected_button)
 
         self.forward_button = QPushButton()
+        self.forward_button.setDisabled(True)
         self.forward_button.setIcon(SEND_ICON)
         self.forward_button.setToolTip("Forward Selected")
         self.forward_button.clicked.connect(self.forward_selected)
@@ -94,12 +101,14 @@ class TranscriptionPanel(QWidget):
     def _transcribe_audio(self):
         if self.mic_enabled:
             mic_text = lorem.sentence()
-            self.transcription_list.add_transcription_block(mic_text, source="mic")
+            self.transcription_list.add_transcription_block(
+                mic_text, source=AudioSourceTypes.MIC
+            )
 
         if self.speaker_enabled:
             speaker_text = lorem.text()
             self.transcription_list.add_transcription_block(
-                speaker_text, source="speaker"
+                speaker_text, source=AudioSourceTypes.SPEAKERS
             )
 
     def set_mic_enabled(self, enabled: bool):
@@ -107,9 +116,6 @@ class TranscriptionPanel(QWidget):
 
     def set_speaker_enabled(self, enabled: bool):
         self.speaker_enabled = enabled
-
-    def _set_select_button_checked(self, checked: bool):
-        self.select_button.setChecked(checked)
 
     def _on_select_clicked(self):
         if self.transcription_list.get_is_all_selected():
@@ -119,12 +125,19 @@ class TranscriptionPanel(QWidget):
             if not self.transcription_list.get_is_all_selected():
                 self.select_button.setChecked(False)
 
-    def _on_delete_selected_clicked(self):
-        selected_items = self.transcription_list.selected_items()
-        for item in selected_items:
-            self.transcription_list.remove_block(item)
+    def _handle_selection_changed(self, selction_state: SelectionStates):
+        if selction_state == SelectionStates.ALL_SELECTED:
+            self.select_button.setChecked(True)
+        else:
+            self.select_button.setChecked(False)
 
-        self.select_button.setChecked(False)
+        if selction_state == SelectionStates.ALL_DESELECTED:
+            self.forward_button.setDisabled(True)
+            self.delete_selected_button.setDisabled(True)
+            return
+
+        self.forward_button.setDisabled(False)
+        self.delete_selected_button.setDisabled(False)
 
     def forward_selected(self):
         """

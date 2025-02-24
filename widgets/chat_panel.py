@@ -32,6 +32,8 @@ class ChatPanel(QWidget):
         self.scroll_area = QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
         self.messages_widget = QWidget()
         self.messages_layout = QVBoxLayout(self.messages_widget)
         self.messages_layout.setAlignment(Qt.AlignTop)
@@ -40,13 +42,15 @@ class ChatPanel(QWidget):
 
         # Input area with dynamically resizing text edit and send button
         input_layout = QHBoxLayout()
+        input_layout.setContentsMargins(0, 0, 0, 0)
+
         self.input_text = QTextEdit(self)
         self.input_text.setPlaceholderText("Type your message...")
-
-        self.input_text.setFixedHeight(35)
+        self.input_text.setFixedHeight(32)
         self.input_text.textChanged.connect(self._adjust_input_height)
 
         self.send_button = QPushButton()
+        self.send_button.setFixedHeight(32)
         self.send_button.setIcon(SEND_ICON)
         self.send_button.setToolTip("Send text")
         self.send_button.clicked.connect(self._handle_send)
