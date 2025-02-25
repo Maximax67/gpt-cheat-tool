@@ -40,7 +40,7 @@ class BaseRecorder:
 
     def stop_recording(self):
         if self.stopper:
-            self.stopper()
+            self.stopper(wait_for_stop=False, callback_last_audio_chunk=True)
             self.stopper = None
 
             return True

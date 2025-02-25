@@ -400,7 +400,6 @@ class Recognizer(AudioSource):
             target_energy = energy * self.dynamic_energy_ratio
             self.energy_threshold = self.energy_threshold * damping + target_energy * (1 - damping)
 
-
     def listen(self, source, timeout=None, phrase_time_limit=None):
         """
         Records a single phrase from ``source`` (an ``AudioSource`` instance) into an ``AudioData`` instance, which it returns.
@@ -495,7 +494,7 @@ class Recognizer(AudioSource):
         The ``callback`` parameter is a function that should accept two parameters - the ``recognizer_instance``, and an ``AudioData`` instance representing the captured audio. Note that ``callback`` function will be called from a non-main thread.
         """
         assert isinstance(source, AudioSource), "Source must be an audio source"
-        running = [True]
+        running = [True, False]
 
         def threaded_listen():
             with source as s:
@@ -505,16 +504,19 @@ class Recognizer(AudioSource):
                     except WaitTimeoutError:  # listening timed out, just try again
                         pass
                     else:
-                        if running[0]: callback(self, audio)
+                        if running[0] or running[1]:
+                            callback(self, audio)
 
-        def stopper(wait_for_stop=True):
+        def stopper(wait_for_stop=True, callback_last_audio_chunk=False):
             running[0] = False
+            running[1] = callback_last_audio_chunk
             if wait_for_stop:
                 listener_thread.join()  # block until the background thread is done, which can take around 1 second
 
         listener_thread = threading.Thread(target=threaded_listen)
         listener_thread.daemon = True
         listener_thread.start()
+
         return stopper
 
 
