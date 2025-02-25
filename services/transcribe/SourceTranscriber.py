@@ -1,3 +1,4 @@
+from typing import Callable
 import wave
 import io
 from queue import Queue
@@ -43,7 +44,11 @@ class SourceTranscriber:
             },
         }
 
-    def transcribe_audio_queue(self, audio_queue: Queue, callback: callable):
+    def transcribe_audio_queue(
+        self,
+        audio_queue: Queue,
+        callback: Callable[[AudioSourceTypes, str, bool], None],
+    ):
         while True:
             source_type, data, time_spoken = audio_queue.get()
             self.update_last_sample_and_phrase_status(source_type, data, time_spoken)
@@ -119,7 +124,10 @@ class SourceTranscriber:
         return wav_buffer
 
     def update_transcript(
-        self, source_type: AudioSourceTypes, text: str, callback: callable
+        self,
+        source_type: AudioSourceTypes,
+        text: str,
+        callback: Callable[[AudioSourceTypes, str, bool], None],
     ):
         source_info = self.audio_sources[source_type]
 
