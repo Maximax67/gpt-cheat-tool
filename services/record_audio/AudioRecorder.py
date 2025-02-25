@@ -13,21 +13,25 @@ DYNAMIC_ENERGY_THRESHOLD = False
 class BaseRecorder:
     source_type = None
 
-    def __init__(self, source):
+    def __init__(self, source, device_name):
         self.recorder = sr.Recognizer()
         self.recorder.energy_threshold = ENERGY_THRESHOLD
         self.recorder.dynamic_energy_threshold = DYNAMIC_ENERGY_THRESHOLD
+        self.device_name = device_name
 
         if source is None:
             raise ValueError("audio source can't be None")
 
         self.source = source
+        self.stopper = None
 
-    def adjust_for_noise(self, device_name, msg):
-        print(f"[INFO] Adjusting for ambient noise from {device_name}. " + msg)
+    def adjust_for_noise(self):
+        print(f"[INFO] Adjusting for ambient noise from {self.device_name}.")
+
         with self.source:
             self.recorder.adjust_for_ambient_noise(self.source)
-        print(f"[INFO] Completed ambient noise adjustment for {device_name}.")
+
+        print(f"[INFO] Completed ambient noise adjustment for {self.device_name}.")
 
     def record_into_queue(self, audio_queue: Queue):
         def record_callback(_, audio: sr.AudioData) -> None:
@@ -62,10 +66,8 @@ class MicRecorder(BaseRecorder):
             else:
                 device_name = p.get_device_info_by_index(device_index)["name"]
 
-        super().__init__(sr.Microphone(device_index=device_index, sample_rate=16000))
-        self.adjust_for_noise(
-            device_name, f"Please make some noise from {device_name}..."
-        )
+        source = sr.Microphone(device_index=device_index, sample_rate=16000)
+        super().__init__(source, device_name)
 
 
 class SpeakerRecorder(BaseRecorder):
@@ -98,7 +100,4 @@ class SpeakerRecorder(BaseRecorder):
             chunk_size=pyaudio.get_sample_size(pyaudio.paInt16),
             channels=default_speakers["maxInputChannels"],
         )
-        super().__init__(source)
-        self.adjust_for_noise(
-            device_name, f"Please make or play some noise from {device_name}..."
-        )
+        super().__init__(source, device_name)

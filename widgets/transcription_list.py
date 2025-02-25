@@ -37,7 +37,9 @@ class TranscriptionListWidget(QScrollArea):
             AudioSourceTypes.SPEAKER: None,
         }
 
-    def add_transcription_block(self, source: AudioSourceTypes, text: str):
+    def add_transcription_block(
+        self, source: AudioSourceTypes, text: str
+    ) -> TranscriptionBlockWidget:
         block = TranscriptionBlockWidget(text, source)
         block.delete_requested.connect(self.remove_block)
         block.selected_changed_by_click.connect(
@@ -53,13 +55,17 @@ class TranscriptionListWidget(QScrollArea):
 
         self.scroll_to_bottom()
 
-    def update_last_block_text(self, source: AudioSourceTypes, text: str):
+        return block
+
+    def update_last_block_text(
+        self, source: AudioSourceTypes, text: str
+    ) -> TranscriptionBlockWidget:
         block = self._last_blocks_by_source.get(source)
         if block:
             block.set_text(text)
-            return
+            return block
 
-        self.add_transcription_block(source, text)
+        return self.add_transcription_block(source, text)
 
     def _handle_block_selected_changed_by_click(self, selected: bool):
         if not selected:
