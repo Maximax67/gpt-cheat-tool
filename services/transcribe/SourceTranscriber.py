@@ -76,9 +76,9 @@ class SourceTranscriber:
             print(time_spoken - first_spoken < timedelta(seconds=MAX_PHRASE_LENGTH))
 
         if (
-            last_spoken
-            and first_spoken
-            and (
+            not last_spoken
+            or not first_spoken
+            or (
                 time_spoken - last_spoken > timedelta(seconds=PHRASE_TIMEOUT)
                 or time_spoken - first_spoken > timedelta(seconds=MAX_PHRASE_LENGTH)
             )

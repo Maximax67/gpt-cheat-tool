@@ -21,7 +21,6 @@ class BaseRecorder:
         if source is None:
             raise ValueError("audio source can't be None")
 
-        self.paused = False
         self.source = source
 
     def adjust_for_noise(self, device_name, msg):
@@ -32,23 +31,24 @@ class BaseRecorder:
 
     def record_into_queue(self, audio_queue: Queue):
         def record_callback(_, audio: sr.AudioData) -> None:
-            if self.paused:
-                return
-
             data = audio.get_raw_data()
             audio_queue.put((self.source_type, data, datetime.now()))
 
-        self.recorder.listen_in_background(
+        self.stopper = self.recorder.listen_in_background(
             self.source, record_callback, phrase_time_limit=RECORD_TIMEOUT
         )
 
-    def pause_recording(self):
-        """Pause recording audio."""
-        self.paused = True
+    def stop_recording(self):
+        if self.stopper:
+            self.stopper()
+            self.stopper = None
 
-    def resume_recording(self):
-        """Resume recording audio."""
-        self.paused = False
+            return True
+
+        return False
+
+    def is_recording(self):
+        return bool(self.stopper)
 
 
 class MicRecorder(BaseRecorder):

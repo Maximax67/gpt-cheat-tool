@@ -1,3 +1,4 @@
+import os
 import lorem
 from io import BytesIO
 from abc import ABC, abstractmethod
@@ -18,14 +19,16 @@ class TestTranscriber(BaseTranscriber):
 
 
 class GroqTranscriber(BaseTranscriber):
-    def __init__(self, client: Groq):
+
+    def __init__(self, client: Groq, model: str):
         self.client = client
+        self.model = model
 
     def get_transcription(self, buffer: BytesIO, file_extension: str) -> str:
         print("API REQUEST")
         transcription = self.client.audio.transcriptions.create(
             file=(f"a.{file_extension}", buffer),
-            model="whisper-large-v3-turbo",
+            model=self.model,
         )
         print("API RESPONSE: ", transcription.text)
 

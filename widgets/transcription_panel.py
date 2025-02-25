@@ -1,7 +1,7 @@
 import queue
 import threading
 import time
-
+import os
 
 from services.record_audio.AudioSourceTypes import AudioSourceTypes
 from services.transcribe.SourceTranscriber import SourceTranscriber
@@ -13,6 +13,8 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
 from PySide6.QtCore import Signal, QMetaObject, Qt, Q_ARG, Slot
 from ui.icons import DELETE_ICON, SELECT_ALL_ICON, SEND_ICON
 from widgets.transcription_list import SelectionStates, TranscriptionListWidget
+
+TRANSCRIPTION_MODEL = os.environ.get("TRANSCRIPTION_MODEL")
 
 
 class TranscriptionPanel(QWidget):
@@ -26,17 +28,17 @@ class TranscriptionPanel(QWidget):
         self.speaker_enabled = True
 
         self.audio_queue = queue.Queue()
-        user_record_audio = MicRecorder()
-        user_record_audio.record_into_queue(self.audio_queue)
+        self.mic_record_audio = MicRecorder()
+        self.mic_record_audio.record_into_queue(self.audio_queue)
 
         time.sleep(2)
 
-        speaker_record_audio = SpeakerRecorder()
-        speaker_record_audio.record_into_queue(self.audio_queue)
+        self.speaker_record_audio = SpeakerRecorder()
+        self.speaker_record_audio.record_into_queue(self.audio_queue)
 
-        self.model = GroqTranscriber(GroqClient)
+        self.model = GroqTranscriber(GroqClient, TRANSCRIPTION_MODEL)
         self.transcriber = SourceTranscriber(
-            user_record_audio.source, speaker_record_audio.source, self.model
+            self.mic_record_audio.source, self.speaker_record_audio.source, self.model
         )
         self.transcribe_thread = threading.Thread(
             target=self.transcriber.transcribe_audio_queue,
@@ -106,11 +108,25 @@ class TranscriptionPanel(QWidget):
             Q_ARG(bool, is_new_phrase),
         )
 
+    def _change_stream_enabled(
+        self, enabled: bool, stream: MicRecorder | SpeakerRecorder
+    ):
+        if not enabled:
+            stream.stop_recording()
+            return
+
+        if not stream.is_recording():
+            stream.record_into_queue(self.audio_queue)
+
     def set_mic_enabled(self, enabled: bool):
-        self.mic_enabled = enabled
+        if self.mic_enabled != enabled:
+            self.mic_enabled = enabled
+            self._change_stream_enabled(enabled, self.mic_record_audio)
 
     def set_speaker_enabled(self, enabled: bool):
-        self.speaker_enabled = enabled
+        if self.speaker_enabled != enabled:
+            self.speaker_enabled = enabled
+            self._change_stream_enabled(enabled, self.speaker_record_audio)
 
     def _on_select_clicked(self):
         if self.transcription_list.get_is_all_selected():
