@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Tuple
 from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout
 from PySide6.QtCore import Qt, QTimer, Signal
 from services.record_audio.AudioSourceTypes import AudioSourceTypes
@@ -118,7 +118,7 @@ class TranscriptionListWidget(QScrollArea):
         """Return a list of all blocks that are currently selected."""
         items = []
         for i in range(self.layout.count()):
-            widget = self.layout.itemAt(i).widget()
+            widget: TranscriptionBlockWidget = self.layout.itemAt(i).widget()
             if widget and getattr(widget, "selected", False):
                 items.append(widget)
 
@@ -139,7 +139,7 @@ class TranscriptionListWidget(QScrollArea):
             return False
 
         for i in range(count):
-            widget = self.layout.itemAt(i).widget()
+            widget: TranscriptionBlockWidget = self.layout.itemAt(i).widget()
             if widget and not getattr(widget, "selected", True):
                 return False
 
@@ -147,7 +147,7 @@ class TranscriptionListWidget(QScrollArea):
 
     def _check_is_any_selected(self) -> bool:
         for i in range(self.layout.count()):
-            widget = self.layout.itemAt(i).widget()
+            widget: TranscriptionBlockWidget = self.layout.itemAt(i).widget()
             if widget and getattr(widget, "selected", False):
                 return True
 
@@ -158,7 +158,7 @@ class TranscriptionListWidget(QScrollArea):
             return
 
         for i in range(self.layout.count()):
-            widget = self.layout.itemAt(i).widget()
+            widget: TranscriptionBlockWidget = self.layout.itemAt(i).widget()
             if widget and getattr(widget, "selected", False):
                 widget.deselect()
 
@@ -176,7 +176,7 @@ class TranscriptionListWidget(QScrollArea):
             return
 
         for i in range(count):
-            widget = self.layout.itemAt(i).widget()
+            widget: TranscriptionBlockWidget = self.layout.itemAt(i).widget()
             if widget and not getattr(widget, "selected", True):
                 widget.select()
 
@@ -195,3 +195,22 @@ class TranscriptionListWidget(QScrollArea):
                 self.verticalScrollBar().maximum()
             ),
         )
+
+    def get_messages(
+        self, limit: Optional[int] = None
+    ) -> List[Tuple[AudioSourceTypes, str]]:
+        if limit and limit < 1:
+            raise ValueError("limit < 1")
+
+        context = []
+        count = self.layout.count()
+        loop_range = (
+            range(count - 1, max(count - limit - 1, -1), -1)
+            if limit
+            else range(count - 1, -1, -1)
+        )
+        for i in loop_range:
+            widget: TranscriptionBlockWidget = self.layout.itemAt(i).widget()
+            context.append((widget.source, widget.text))
+
+        return context

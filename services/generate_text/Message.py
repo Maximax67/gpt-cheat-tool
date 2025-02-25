@@ -16,4 +16,5 @@ class Message:
         self.text = text
         self.role = role
         self.parent = parent
+        self.error: Optional[Exception] = None
         self.childs: List["Message"] = []

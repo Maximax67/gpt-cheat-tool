@@ -2,14 +2,15 @@ from typing import List, Optional, Callable
 
 from services.generate_text.Message import Message, MessageRoles
 from services.generate_text.TextGenerator import (
-    BaseTextGenerator,
-    ChatCompletionMessageParam,
+    AbstractTextGenerator,
+    ChatMessageDict,
 )
 
 
 class ChatController:
+
     def __init__(
-        self, generator: BaseTextGenerator, system_message: Optional[str] = None
+        self, generator: AbstractTextGenerator, system_message: Optional[str] = None
     ):
         self.generator = generator
         self.system_message = system_message
@@ -25,7 +26,7 @@ class ChatController:
 
     def _form_messages_list(
         self, message: Message, max_length: Optional[int]
-    ) -> List[ChatCompletionMessageParam]:
+    ) -> List[ChatMessageDict]:
         message_list = []
         current_message = message
 
@@ -36,7 +37,6 @@ class ChatController:
             current_message = current_message.parent
 
         if self.system_message:
-            max_length += 1
             message_list.append(
                 {"role": MessageRoles.SYSTEM.value, "content": self.system_message}
             )
@@ -83,6 +83,7 @@ class ChatController:
         self,
         message: Message,
         callback: Callable[[str], None],
+        completed_callback: Callable[[Optional[Exception]], None],
         send_n_messages: Optional[int],
     ) -> None:
         response_message = self._add_message("", MessageRoles.ASSISTANT, message)
@@ -92,19 +93,25 @@ class ChatController:
             response_message.text += response_text
             callback(response_text)
 
+        def internal_completed_callback(exception: Optional[Exception]):
+            response_message.error = exception
+            completed_callback(exception)
+
         await self.generator.generate_text(
             messages=self._form_messages_list(message, send_n_messages),
             callback=internal_callback,
+            completed_callback=internal_completed_callback,
         )
 
     async def generate_response(
         self,
         text: str,
         callback: Callable[[str], None],
+        completed_callback: Callable[[Optional[Exception]], None],
         assistant_message_id: Optional[int] = None,
         send_n_messages: Optional[int] = None,
     ) -> None:
-        if send_n_messages < 1:
+        if send_n_messages and send_n_messages < 1:
             raise ValueError("send_n_messages should be >= 1")
 
         if assistant_message_id:
@@ -117,17 +124,21 @@ class ChatController:
             self.root_messages_ids.append(user_message.id)
 
         await self._generate_response_for_message(
-            user_message, callback, send_n_messages
+            user_message, callback, completed_callback, send_n_messages
         )
 
     async def regenerate_message(
         self,
         assistant_message_id: int,
         callback: Callable[[str], None],
+        completed_callback: Callable[[Optional[Exception]], None],
         send_n_messages: Optional[int] = None,
     ) -> None:
         if not self.messages:
-            raise ValueError("No messages to regenerate.")
+            raise Exception("No messages to regenerate.")
+
+        if send_n_messages and send_n_messages < 1:
+            raise ValueError("send_n_messages should be >= 1")
 
         assistant_message = self._get_assistant_message_by_id(assistant_message_id)
         user_message = assistant_message.parent
@@ -135,7 +146,7 @@ class ChatController:
             raise ValueError("Message does not have a parent user message")
 
         await self._generate_response_for_message(
-            user_message, callback, send_n_messages
+            user_message, callback, completed_callback, send_n_messages
         )
 
     async def change_user_message(
@@ -143,9 +154,13 @@ class ChatController:
         text: str,
         user_message_id: int,
         callback: Callable[[str], None],
+        completed_callback: Callable[[Optional[Exception]], None],
         send_n_messages: Optional[int] = None,
     ) -> None:
-        if send_n_messages < 1:
+        if not self.messages:
+            raise Exception("No messages to change.")
+
+        if send_n_messages and send_n_messages < 1:
             raise ValueError("send_n_messages should be >= 1")
 
         user_message = self._get_user_message_by_id(user_message_id)
@@ -160,5 +175,5 @@ class ChatController:
             user_message_parent.childs.append(new_user_message)
 
         await self._generate_response_for_message(
-            new_user_message, callback, send_n_messages
+            new_user_message, callback, completed_callback, send_n_messages
         )

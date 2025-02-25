@@ -45,9 +45,6 @@ class TranscriptionBlockWidget(QWidget):
     def delete_self(self):
         self.delete_requested.emit(self)
 
-    def get_text(self) -> str:
-        return self.text
-
     def set_text(self, text):
         self.text = text
         self.label.setText(text)

@@ -2,76 +2,90 @@ import lorem
 from random import randint
 from abc import ABC, abstractmethod
 from groq import Groq
-from typing import TypedDict, Callable, List
+from typing import Optional, TypedDict, Callable, List
 
 
-class ChatCompletionMessageParam(TypedDict):
+class ChatMessageDict(TypedDict):
     content: str
     role: str
 
-
-class BaseTextGenerator(ABC):
+class AbstractTextGenerator(ABC):
     @abstractmethod
-    async def generate_text(
+    def generate_text(
         self,
-        messages: List[ChatCompletionMessageParam],
-        callback: Callable[[str], None] = None,
+        chat_history: List[ChatMessageDict],
+        callback: Callable[[str], None],
+        completed_callback: Callable[[Optional[Exception]], None],
+        model: Optional[str] = None,
     ) -> None:
         raise NotImplementedError("this is an abstract class")
 
 
-class TestGenerator(BaseTextGenerator):
+class MockTextGenerator(AbstractTextGenerator):
 
-    async def generate_text(
+    def generate_text(
         self,
-        messages: List[ChatCompletionMessageParam],
+        chat_history: List[ChatMessageDict],
         callback: Callable[[str], None],
+        completed_callback: Callable[[Optional[Exception]], None],
+        model: Optional[str] = None,
     ) -> None:
-        if not callback:
-            raise ValueError("Callback function must be provided.")
-
-        text = lorem.sentence()
-        callback(text)
-
-        for i in range(randint(0, 15)):
-            text = " " + lorem.sentence()
+        try:
+            text = lorem.sentence()
             callback(text)
 
+            for _ in range(randint(0, 15)):
+                text = " " + lorem.sentence()
+                callback(text)
+        except Exception as e:
+            completed_callback(e)
+        else:
+            completed_callback(None)
 
-class GroqChatCompletion(BaseTextGenerator):
+
+class GroqTextGenerator(AbstractTextGenerator):
 
     def __init__(
         self,
         client: Groq,
-        model: str,
+        default_model: str,
         temperature=0.5,
         max_tokens=1024,
         top_p=1,
         stream=True,
     ):
         self.client = client
-        self.model = model
+        self.default_model = default_model
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.stream = stream
 
-    async def generate_text(
+    def generate_text(
         self,
-        messages: List[ChatCompletionMessageParam],
+        chat_history: List[ChatMessageDict],
         callback: Callable[[str], None],
+        completed_callback: Callable[[bool], None],
+        model: Optional[str] = None,
     ) -> None:
-        if not callback:
-            raise ValueError("Callback function must be provided.")
+        try:
+            if not model:
+                model = self.default_model
 
-        stream = await self.client.chat.completions.create(
-            messages,
-            self.model,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            top_p=self.top_p,
-            stream=self.stream,
-        )
+            stream = self.client.chat.completions.create(
+                messages=chat_history,
+                model=model,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                top_p=self.top_p,
+                stream=self.stream,
+            )
 
-        async for chunk in stream:
-            callback(chunk.choices[0].delta.content)
+            for chunk in stream:
+                text_chunk = chunk.choices[0].delta.content
+                if text_chunk:
+                    callback(text_chunk)
+        except Exception as e:
+            completed_callback(e)
+        else:
+            completed_callback(None)

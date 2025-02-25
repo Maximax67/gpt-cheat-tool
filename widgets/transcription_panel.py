@@ -1,7 +1,7 @@
 import os
 import threading
-import time
 from queue import Queue
+from typing import List, Optional, Tuple
 
 from services.record_audio.AudioSourceTypes import AudioSourceTypes
 from services.transcribe.SourceTranscriber import SourceTranscriber
@@ -11,7 +11,7 @@ from services.record_audio.AudioRecorder import (
     SpeakerRecorder,
 )
 from services.transcribe.Transcriber import GroqTranscriber
-from services.groq import GroqClient
+from services.groq import groq_client
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
 from PySide6.QtCore import Signal, QMetaObject, Qt, Q_ARG, Slot, QThread, QTimer
@@ -68,7 +68,7 @@ class TranscriptionPanel(QWidget):
         )
         self._mic_init_thread.start()
 
-        self.model = GroqTranscriber(GroqClient, TRANSCRIPTION_MODEL)
+        self.model = GroqTranscriber(groq_client, TRANSCRIPTION_MODEL)
         self.transcriber = SourceTranscriber(
             self.mic_record_audio.source, self.speaker_record_audio.source, self.model
         )
@@ -135,7 +135,7 @@ class TranscriptionPanel(QWidget):
             )
         )
 
-        QTimer.singleShot(50, self._speaker_init_thread.start)
+        QTimer.singleShot(1000, self._speaker_init_thread.start)
 
     def _on_speaker_noise_adjusted(self):
         if self.speaker_enabled:
@@ -216,11 +216,14 @@ class TranscriptionPanel(QWidget):
         if not selected_blocks:
             return
 
-        combined_text = "".join(
-            block.get_text() + "\n" for block in selected_blocks
-        ).strip()
+        combined_text = "".join(block.text + "\n" for block in selected_blocks).strip()
         if combined_text:
             self.forward_signal.emit(combined_text)
 
         self.transcription_list.deselect_all()
         self.select_button.setChecked(False)
+
+    def get_messages(
+        self, limit: Optional[int] = None
+    ) -> List[Tuple[AudioSourceTypes, str]]:
+        return self.transcription_list.get_messages(limit)
