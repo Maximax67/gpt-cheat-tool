@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple
 from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout
 from PySide6.QtCore import Qt, QTimer, Signal
-from services.record_audio.AudioSourceTypes import AudioSourceTypes
+from services.record_audio.AudioSourceType import AudioSourceType
 from widgets.transcription_block import TranscriptionBlockWidget
 
 
@@ -18,7 +18,19 @@ class TranscriptionListWidget(QScrollArea):
 
     def __init__(self):
         super().__init__()
+        self._setup_ui()
+        self.update_theme_ui()
 
+        self._is_all_selected = False
+        self._is_some_selected = False
+        self._last_blocks_by_source: Dict[
+            AudioSourceType, Optional[TranscriptionBlockWidget]
+        ] = {
+            AudioSourceType.MIC: None,
+            AudioSourceType.SPEAKER: None,
+        }
+
+    def _setup_ui(self):
         self.setWidgetResizable(True)
         self.container = QWidget()
         self.layout = QVBoxLayout(self.container)
@@ -28,17 +40,9 @@ class TranscriptionListWidget(QScrollArea):
         self.container.setLayout(self.layout)
         self.setWidget(self.container)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self._is_all_selected = False
-        self._is_some_selected = False
-        self._last_blocks_by_source: Dict[
-            AudioSourceTypes, Optional[TranscriptionBlockWidget]
-        ] = {
-            AudioSourceTypes.MIC: None,
-            AudioSourceTypes.SPEAKER: None,
-        }
 
     def add_transcription_block(
-        self, source: AudioSourceTypes, text: str
+        self, source: AudioSourceType, text: str
     ) -> TranscriptionBlockWidget:
         block = TranscriptionBlockWidget(text, source)
         block.delete_requested.connect(self.remove_block)
@@ -58,7 +62,7 @@ class TranscriptionListWidget(QScrollArea):
         return block
 
     def update_last_block_text(
-        self, source: AudioSourceTypes, text: str
+        self, source: AudioSourceType, text: str
     ) -> TranscriptionBlockWidget:
         block = self._last_blocks_by_source.get(source)
         if block:
@@ -115,7 +119,6 @@ class TranscriptionListWidget(QScrollArea):
             self.selection_changed.emit(SelectionStates.ALL_DESELECTED)
 
     def selected_items(self) -> list[TranscriptionBlockWidget]:
-        """Return a list of all blocks that are currently selected."""
         items = []
         for i in range(self.layout.count()):
             widget: TranscriptionBlockWidget = self.layout.itemAt(i).widget()
@@ -188,7 +191,6 @@ class TranscriptionListWidget(QScrollArea):
         return self._is_all_selected
 
     def scroll_to_bottom(self):
-        """Ensure the latest message is visible."""
         QTimer.singleShot(
             50,
             lambda: self.verticalScrollBar().setValue(
@@ -198,7 +200,7 @@ class TranscriptionListWidget(QScrollArea):
 
     def get_messages(
         self, limit: Optional[int] = None
-    ) -> List[Tuple[AudioSourceTypes, str]]:
+    ) -> List[Tuple[AudioSourceType, str]]:
         if limit and limit < 1:
             raise ValueError("limit < 1")
 
@@ -214,3 +216,9 @@ class TranscriptionListWidget(QScrollArea):
             context.append((widget.source, widget.text))
 
         return context
+
+    def update_theme_ui(self):
+        for i in range(self.layout.count()):
+            widget: TranscriptionBlockWidget = self.layout.itemAt(i).widget()
+            if widget:
+                widget.update_theme_ui()

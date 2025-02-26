@@ -3,7 +3,10 @@ import threading
 from queue import Queue
 from typing import List, Optional, Tuple
 
-from services.record_audio.AudioSourceTypes import AudioSourceTypes
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
+from PySide6.QtCore import Signal, QMetaObject, Qt, Q_ARG, Slot, QThread, QTimer
+
+from services.record_audio.AudioSourceType import AudioSourceType
 from services.transcribe.SourceTranscriber import SourceTranscriber
 from services.record_audio.AudioRecorder import (
     BaseRecorder,
@@ -13,10 +16,8 @@ from services.record_audio.AudioRecorder import (
 from services.transcribe.Transcriber import GroqTranscriber
 from services.groq import groq_client
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
-from PySide6.QtCore import Signal, QMetaObject, Qt, Q_ARG, Slot, QThread, QTimer
-from ui.icons import DELETE_ICON, SELECT_ALL_ICON, SEND_ICON
 from widgets.transcription_list import SelectionStates, TranscriptionListWidget
+from ui.icons import Icon, get_icon
 
 TRANSCRIPTION_MODEL = os.environ.get("TRANSCRIPTION_MODEL")
 ADJUSTING_FOR_NOISE_MESSAGE = "[ Adjusting for ambient noise ]"
@@ -41,6 +42,7 @@ class TranscriptionPanel(QWidget):
     def __init__(self):
         super().__init__()
         self._setup_ui()
+        self.update_theme_ui()
 
         self.mic_enabled = True
         self.speaker_enabled = True
@@ -63,7 +65,7 @@ class TranscriptionPanel(QWidget):
 
         self._adjusting_noise_audio_block = (
             self.transcription_list.add_transcription_block(
-                AudioSourceTypes.MIC, ADJUSTING_FOR_NOISE_MESSAGE
+                AudioSourceType.MIC, ADJUSTING_FOR_NOISE_MESSAGE
             )
         )
         self._mic_init_thread.start()
@@ -97,14 +99,12 @@ class TranscriptionPanel(QWidget):
 
         self.select_button = QPushButton()
         self.select_button.setCheckable(True)
-        self.select_button.setIcon(SELECT_ALL_ICON)
         self.select_button.setToolTip("Select All")
         self.select_button.clicked.connect(self._on_select_clicked)
         button_layout.addWidget(self.select_button)
 
         self.delete_selected_button = QPushButton()
         self.delete_selected_button.setDisabled(True)
-        self.delete_selected_button.setIcon(DELETE_ICON)
         self.delete_selected_button.setToolTip("Delete Selected")
         self.delete_selected_button.clicked.connect(
             self.transcription_list.remove_selected
@@ -113,7 +113,6 @@ class TranscriptionPanel(QWidget):
 
         self.forward_button = QPushButton()
         self.forward_button.setDisabled(True)
-        self.forward_button.setIcon(SEND_ICON)
         self.forward_button.setToolTip("Forward Selected")
         self.forward_button.clicked.connect(self.forward_selected)
         button_layout.addWidget(self.forward_button)
@@ -131,7 +130,7 @@ class TranscriptionPanel(QWidget):
 
         self._adjusting_noise_audio_block = (
             self.transcription_list.add_transcription_block(
-                AudioSourceTypes.SPEAKER, ADJUSTING_FOR_NOISE_MESSAGE
+                AudioSourceType.SPEAKER, ADJUSTING_FOR_NOISE_MESSAGE
             )
         )
 
@@ -150,7 +149,7 @@ class TranscriptionPanel(QWidget):
 
     @Slot(str, str, bool)
     def update_transcription(self, source_string: str, text: str, is_new_phrase: bool):
-        source_type = AudioSourceTypes(source_string)
+        source_type = AudioSourceType(source_string)
         if is_new_phrase:
             self.transcription_list.add_transcription_block(source_type, text)
             return
@@ -158,7 +157,7 @@ class TranscriptionPanel(QWidget):
         self.transcription_list.update_last_block_text(source_type, text)
 
     def _handle_transcript_update(
-        self, source: AudioSourceTypes, text: str, is_new_phrase: bool
+        self, source: AudioSourceType, text: str, is_new_phrase: bool
     ):
         QMetaObject.invokeMethod(
             self,
@@ -225,5 +224,11 @@ class TranscriptionPanel(QWidget):
 
     def get_messages(
         self, limit: Optional[int] = None
-    ) -> List[Tuple[AudioSourceTypes, str]]:
+    ) -> List[Tuple[AudioSourceType, str]]:
         return self.transcription_list.get_messages(limit)
+
+    def update_theme_ui(self):
+        self.select_button.setIcon(get_icon(Icon.SELECT_ALL))
+        self.delete_selected_button.setIcon(get_icon(Icon.DELETE))
+        self.forward_button.setIcon(get_icon(Icon.SEND))
+        self.transcription_list.update_theme_ui()

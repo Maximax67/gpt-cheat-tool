@@ -1,7 +1,7 @@
-import asyncio
 import threading
 import markdown
 from typing import List, Optional, Tuple
+
 from PySide6.QtWidgets import (
     QWidget,
     QHBoxLayout,
@@ -13,10 +13,12 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 from PySide6.QtCore import Qt, Signal
-from services.generate_text.Message import MessageRoles
+
+from services.generate_text.Message import ChatMessageRole
 from services.generate_text.TextGenerator import AbstractTextGenerator
-from services.record_audio.AudioSourceTypes import AudioSourceTypes
-from ui.icons import COPY_ICON, REFRESH_ICON, SEND_ICON
+from services.record_audio.AudioSourceType import AudioSourceType
+
+from ui.icons import Icon, get_icon
 
 
 class QuickAnswerPanel(QWidget):
@@ -32,6 +34,7 @@ class QuickAnswerPanel(QWidget):
     ):
         super().__init__(parent)
         self.setup_ui()
+        self.update_theme_ui()
         self.set_text(text)
 
         self.text_generator = text_generator
@@ -43,7 +46,6 @@ class QuickAnswerPanel(QWidget):
         main_layout.setContentsMargins(5, 5, 5, 5)
         main_layout.setSpacing(10)
 
-        # Scrollable label container
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -64,20 +66,17 @@ class QuickAnswerPanel(QWidget):
         button_layout.setContentsMargins(0, 0, 0, 0)
 
         self.copy_button = QPushButton()
-        self.copy_button.setIcon(COPY_ICON)
         self.copy_button.setToolTip("Copy")
         self.copy_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         self.copy_button.clicked.connect(self.copy_text)
         button_layout.addWidget(self.copy_button)
 
         self.generate_answer_button = QPushButton()
-        self.generate_answer_button.setIcon(REFRESH_ICON)
         self.generate_answer_button.setToolTip("Regenerate answer")
         self.generate_answer_button.clicked.connect(self._toggle_generate)
         button_layout.addWidget(self.generate_answer_button)
 
         self.forward_button = QPushButton()
-        self.forward_button.setIcon(SEND_ICON)
         self.forward_button.setToolTip("Forward to chat")
         self.forward_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         self.forward_button.clicked.connect(self.forward_answer)
@@ -101,7 +100,7 @@ class QuickAnswerPanel(QWidget):
     def clear_text(self):
         self.set_text("")
 
-    def generate_quick_answer(self, messages: List[Tuple[AudioSourceTypes, str]]):
+    def generate_quick_answer(self, messages: List[Tuple[AudioSourceType, str]]):
         if self.is_generating:
             return
 
@@ -119,7 +118,7 @@ class QuickAnswerPanel(QWidget):
         chat_history = []
         if self.system_message:
             chat_history.append(
-                {"role": MessageRoles.SYSTEM.value, "content": self.system_message}
+                {"role": ChatMessageRole.SYSTEM.value, "content": self.system_message}
             )
 
         messages_formatted = "\n\n".join(
@@ -128,7 +127,7 @@ class QuickAnswerPanel(QWidget):
 
         chat_history.append(
             {
-                "role": MessageRoles.USER.value,
+                "role": ChatMessageRole.USER.value,
                 "content": messages_formatted,
             }
         )
@@ -188,3 +187,8 @@ class QuickAnswerPanel(QWidget):
 
     def forward_answer(self):
         self.forward_signal.emit(self.text)
+
+    def update_theme_ui(self):
+        self.copy_button.setIcon(get_icon(Icon.COPY))
+        self.generate_answer_button.setIcon(get_icon(Icon.REFRESH))
+        self.forward_button.setIcon(get_icon(Icon.SEND))

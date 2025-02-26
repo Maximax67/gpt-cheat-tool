@@ -2,13 +2,17 @@ import os
 
 from PySide6.QtWidgets import QMainWindow, QSplitter, QWidget, QHBoxLayout, QVBoxLayout
 from PySide6.QtCore import Qt
+
 from services.generate_text.TextGenerator import GroqTextGenerator
 from services.groq import groq_client
+
 from widgets.chat_panel import ChatPanel
 from widgets.quick_answer_panel import QuickAnswerPanel
 from widgets.transcription_panel import TranscriptionPanel
 from widgets.controls_widget_panel import ControlsPanel
+
 from ui.settings_dialog import SettingsDialog
+from ui.themes import Theme, ThemeManager
 
 
 QUICK_ANSWER_MESSAGE_CONTEXT = 5
@@ -19,6 +23,15 @@ QUICK_ANSWER_MODEL = os.environ.get("QUICK_ANSWER_MODEL")
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+
+        self.theme_manager = ThemeManager(Theme.AUTO)
+        self.settings_dialog = SettingsDialog(parent=self)
+        self.settings_dialog.set_current_theme(Theme.AUTO)
+        self.settings_dialog.set_theme_signal.connect(self.update_theme)
+
+        self._setup_ui()
+
+    def _setup_ui(self):
         self.setWindowTitle("Groq Audio Transcription & Chat")
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
@@ -95,5 +108,12 @@ class MainWindow(QMainWindow):
         self.quick_answer_panel.generate_quick_answer(context)
 
     def open_settings(self):
-        dialog = SettingsDialog(self)
-        dialog.exec()
+        self.settings_dialog.exec()
+
+    def update_theme(self, theme: Theme):
+        if self.theme_manager.set_theme(theme):
+            self.settings_dialog.set_current_theme(theme)
+            self.chat_panel.update_theme_ui()
+            self.quick_answer_panel.update_theme_ui()
+            self.transcription_panel.update_theme_ui()
+            self.transcription_controls.update_theme_ui()

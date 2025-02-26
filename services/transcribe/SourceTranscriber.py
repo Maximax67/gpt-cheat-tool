@@ -3,8 +3,8 @@ import wave
 import io
 from queue import Queue
 from datetime import timedelta
-from services.record_audio.AudioSourceTypes import AudioSourceTypes
-from services.transcribe.Transcriber import BaseTranscriber
+from services.record_audio.AudioSourceType import AudioSourceType
+from services.transcribe.Transcriber import AbstractTranscriber
 import services.record_audio.custom_speech_recognition as sr
 import pyaudiowpatch as pyaudio
 
@@ -18,11 +18,11 @@ class SourceTranscriber:
         self,
         mic_source: sr.Microphone,
         speaker_source: sr.Microphone,
-        transcriber: BaseTranscriber,
+        transcriber: AbstractTranscriber,
     ):
         self.transcriber = transcriber
         self.audio_sources = {
-            AudioSourceTypes.MIC: {
+            AudioSourceType.MIC: {
                 "sample_rate": mic_source.SAMPLE_RATE,
                 "sample_width": mic_source.SAMPLE_WIDTH,
                 "channels": mic_source.channels,
@@ -32,7 +32,7 @@ class SourceTranscriber:
                 "new_phrase": True,
                 "process_data_func": self.process_mic_data,
             },
-            AudioSourceTypes.SPEAKER: {
+            AudioSourceType.SPEAKER: {
                 "sample_rate": speaker_source.SAMPLE_RATE,
                 "sample_width": speaker_source.SAMPLE_WIDTH,
                 "channels": speaker_source.channels,
@@ -47,7 +47,7 @@ class SourceTranscriber:
     def transcribe_audio_queue(
         self,
         audio_queue: Queue,
-        callback: Callable[[AudioSourceTypes, str, bool], None],
+        callback: Callable[[AudioSourceType, str, bool], None],
     ):
         while True:
             source_type, data, time_spoken = audio_queue.get()
@@ -102,8 +102,8 @@ class SourceTranscriber:
     def process_mic_data(self, data):
         audio_data = sr.AudioData(
             data,
-            self.audio_sources[AudioSourceTypes.MIC]["sample_rate"],
-            self.audio_sources[AudioSourceTypes.MIC]["sample_width"],
+            self.audio_sources[AudioSourceType.MIC]["sample_rate"],
+            self.audio_sources[AudioSourceType.MIC]["sample_width"],
         )
         wav_buffer = io.BytesIO(audio_data.get_wav_data())
         wav_buffer.seek(0)
@@ -113,10 +113,10 @@ class SourceTranscriber:
     def process_speaker_data(self, data):
         wav_buffer = io.BytesIO()
         with wave.open(wav_buffer, "wb") as wf:
-            wf.setnchannels(self.audio_sources[AudioSourceTypes.SPEAKER]["channels"])
+            wf.setnchannels(self.audio_sources[AudioSourceType.SPEAKER]["channels"])
             p = pyaudio.PyAudio()
             wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
-            wf.setframerate(self.audio_sources[AudioSourceTypes.SPEAKER]["sample_rate"])
+            wf.setframerate(self.audio_sources[AudioSourceType.SPEAKER]["sample_rate"])
             wf.writeframes(data)
 
         wav_buffer.seek(0)
@@ -125,9 +125,9 @@ class SourceTranscriber:
 
     def update_transcript(
         self,
-        source_type: AudioSourceTypes,
+        source_type: AudioSourceType,
         text: str,
-        callback: Callable[[AudioSourceTypes, str, bool], None],
+        callback: Callable[[AudioSourceType, str, bool], None],
     ):
         source_info = self.audio_sources[source_type]
 

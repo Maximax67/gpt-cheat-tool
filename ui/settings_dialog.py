@@ -1,3 +1,4 @@
+from typing import List
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -7,13 +8,14 @@ from PySide6.QtWidgets import (
     QComboBox,
     QGroupBox,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 
-from ui.icons import update_icon_colors
-from ui.switch_theme import switch_theme
+from ui.themes import Theme
 
 
 class SettingsDialog(QDialog):
+    set_theme_signal = Signal(Theme)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Settings")
@@ -31,8 +33,9 @@ class SettingsDialog(QDialog):
         theme_layout.addWidget(theme_label)
 
         self.theme_selector = QComboBox(self)
-        self.theme_selector.addItems(["Light", "Dark", "System"])
-        self.theme_selector.currentTextChanged.connect(self.on_theme_changed)
+        self.theme_selector.addItems([theme.value.capitalize() for theme in Theme])
+        self.theme_selector.currentTextChanged.connect(self._on_theme_changed)
+
         theme_layout.addWidget(self.theme_selector)
         main_layout.addLayout(theme_layout)
 
@@ -47,7 +50,7 @@ class SettingsDialog(QDialog):
 
         self.audio_input_selector = QComboBox(self)
         self.audio_input_selector.currentTextChanged.connect(
-            self.on_audio_input_changed
+            self._on_audio_input_changed
         )
         input_layout.addWidget(self.audio_input_selector)
         audio_layout.addLayout(input_layout)
@@ -59,7 +62,7 @@ class SettingsDialog(QDialog):
 
         self.audio_output_selector = QComboBox(self)
         self.audio_output_selector.currentTextChanged.connect(
-            self.on_audio_output_changed
+            self._on_audio_output_changed
         )
         output_layout.addWidget(self.audio_output_selector)
         audio_layout.addLayout(output_layout)
@@ -70,26 +73,22 @@ class SettingsDialog(QDialog):
         close_button.clicked.connect(self.accept)
         main_layout.addWidget(close_button, alignment=Qt.AlignRight)
 
-    def on_theme_changed(self, theme: str):
-        switch_theme(theme.lower())
-        update_icon_colors(theme.lower())
+    def _on_theme_changed(self, theme: str):
+        self.set_theme_signal.emit(Theme(theme.lower()))
 
-    def on_audio_input_changed(self, device_name: str):
-        # Event handler for audio input change.
+    def set_current_theme(self, theme: Theme):
+        self.theme_selector.setCurrentText(theme.value.capitalize())
+
+    def _on_audio_input_changed(self, device_name: str):
         print("Audio input changed to:", device_name)
-        # Add further event handling here, e.g., emitting a signal.
 
-    def on_audio_output_changed(self, device_name: str):
-        # Event handler for audio output change.
+    def _on_audio_output_changed(self, device_name: str):
         print("Audio output changed to:", device_name)
-        # Add further event handling here, e.g., emitting a signal.
 
-    def set_audio_input_devices(self, devices: list):
-        """Populate the audio input device selector with a list of device names."""
+    def set_audio_input_devices(self, devices: List[str]):
         self.audio_input_selector.clear()
         self.audio_input_selector.addItems(devices)
 
-    def set_audio_output_devices(self, devices: list):
-        """Populate the audio output device selector with a list of device names."""
+    def set_audio_output_devices(self, devices: List[str]):
         self.audio_output_selector.clear()
         self.audio_output_selector.addItems(devices)

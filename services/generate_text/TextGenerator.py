@@ -9,6 +9,7 @@ class ChatMessageDict(TypedDict):
     content: str
     role: str
 
+
 class AbstractTextGenerator(ABC):
     @abstractmethod
     def generate_text(

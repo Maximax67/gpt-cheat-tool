@@ -3,7 +3,7 @@ from datetime import datetime
 import pyaudiowpatch as pyaudio
 
 import services.record_audio.custom_speech_recognition as sr
-from services.record_audio.AudioSourceTypes import AudioSourceTypes
+from services.record_audio.AudioSourceType import AudioSourceType
 
 RECORD_TIMEOUT = 4
 ENERGY_THRESHOLD = 1000
@@ -56,7 +56,7 @@ class BaseRecorder:
 
 
 class MicRecorder(BaseRecorder):
-    source_type = AudioSourceTypes.MIC
+    source_type = AudioSourceType.MIC
 
     def __init__(self, device_index=None):
         with pyaudio.PyAudio() as p:
@@ -71,7 +71,7 @@ class MicRecorder(BaseRecorder):
 
 
 class SpeakerRecorder(BaseRecorder):
-    source_type = AudioSourceTypes.SPEAKER
+    source_type = AudioSourceType.SPEAKER
 
     def __init__(self, device_index=None):
         with pyaudio.PyAudio() as p:

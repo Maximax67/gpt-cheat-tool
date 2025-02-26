@@ -1,6 +1,6 @@
 from enum import Enum
 
 
-class AudioSourceTypes(Enum):
+class AudioSourceType(Enum):
     MIC = "MIC"
     SPEAKER = "SPEAKER"

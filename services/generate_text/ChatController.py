@@ -1,6 +1,7 @@
+import threading
 from typing import List, Optional, Callable
 
-from services.generate_text.Message import Message, MessageRoles
+from services.generate_text.Message import Message, ChatMessageRole
 from services.generate_text.TextGenerator import (
     AbstractTextGenerator,
     ChatMessageDict,
@@ -38,7 +39,7 @@ class ChatController:
 
         if self.system_message:
             message_list.append(
-                {"role": MessageRoles.SYSTEM.value, "content": self.system_message}
+                {"role": ChatMessageRole.SYSTEM.value, "content": self.system_message}
             )
 
         message_list.reverse()
@@ -46,7 +47,7 @@ class ChatController:
         return message_list
 
     def _add_message(
-        self, text: str, role: MessageRoles, parent: Optional[Message]
+        self, text: str, role: ChatMessageRole, parent: Optional[Message]
     ) -> Message:
         message_id = len(self.messages)
         message = Message(message_id, text, role, parent)
@@ -62,7 +63,7 @@ class ChatController:
             raise ValueError("Message with id assistant_message_id not found")
 
         assistant_message = self.messages[assistant_message_id]
-        if assistant_message.role != MessageRoles.ASSISTANT:
+        if assistant_message.role != ChatMessageRole.ASSISTANT:
             raise ValueError(
                 "Message with id assistant_message_id is not an assistant message"
             )
@@ -74,19 +75,21 @@ class ChatController:
             raise ValueError("Message with id user_message_id not found")
 
         user_message = self.messages[user_message_id]
-        if user_message.role != MessageRoles.ASSISTANT:
+        if user_message.role != ChatMessageRole.ASSISTANT:
             raise ValueError("Message with id user_message_id is not an user message")
 
         return user_message
 
-    async def _generate_response_for_message(
+    def _generate_response_for_message(
         self,
         message: Message,
         callback: Callable[[str], None],
         completed_callback: Callable[[Optional[Exception]], None],
         send_n_messages: Optional[int],
+        model: Optional[str],
     ) -> None:
-        response_message = self._add_message("", MessageRoles.ASSISTANT, message)
+        chat_history = self._form_messages_list(message, send_n_messages)
+        response_message = self._add_message("", ChatMessageRole.ASSISTANT, message)
         message.childs.append(response_message)
 
         def internal_callback(response_text: str):
@@ -97,19 +100,19 @@ class ChatController:
             response_message.error = exception
             completed_callback(exception)
 
-        await self.generator.generate_text(
-            messages=self._form_messages_list(message, send_n_messages),
-            callback=internal_callback,
-            completed_callback=internal_completed_callback,
-        )
+        threading.Thread(
+            target=self.generator.generate_text,
+            args=(chat_history, internal_callback, internal_completed_callback, model),
+        ).start()
 
-    async def generate_response(
+    def generate_response(
         self,
         text: str,
         callback: Callable[[str], None],
         completed_callback: Callable[[Optional[Exception]], None],
         assistant_message_id: Optional[int] = None,
         send_n_messages: Optional[int] = None,
+        model: Optional[str] = None,
     ) -> None:
         if send_n_messages and send_n_messages < 1:
             raise ValueError("send_n_messages should be >= 1")
@@ -119,20 +122,21 @@ class ChatController:
         else:
             assistant_message = None
 
-        user_message = self._add_message(text, MessageRoles.USER, assistant_message)
+        user_message = self._add_message(text, ChatMessageRole.USER, assistant_message)
         if user_message.parent is None:
             self.root_messages_ids.append(user_message.id)
 
-        await self._generate_response_for_message(
-            user_message, callback, completed_callback, send_n_messages
+        self._generate_response_for_message(
+            user_message, callback, completed_callback, send_n_messages, model
         )
 
-    async def regenerate_message(
+    def regenerate_message(
         self,
         assistant_message_id: int,
         callback: Callable[[str], None],
         completed_callback: Callable[[Optional[Exception]], None],
         send_n_messages: Optional[int] = None,
+        model: Optional[str] = None,
     ) -> None:
         if not self.messages:
             raise Exception("No messages to regenerate.")
@@ -142,20 +146,21 @@ class ChatController:
 
         assistant_message = self._get_assistant_message_by_id(assistant_message_id)
         user_message = assistant_message.parent
-        if user_message is None or user_message.role != MessageRoles.USER:
+        if user_message is None or user_message.role != ChatMessageRole.USER:
             raise ValueError("Message does not have a parent user message")
 
-        await self._generate_response_for_message(
-            user_message, callback, completed_callback, send_n_messages
+        self._generate_response_for_message(
+            user_message, callback, completed_callback, send_n_messages, model
         )
 
-    async def change_user_message(
+    def change_user_message(
         self,
         text: str,
         user_message_id: int,
         callback: Callable[[str], None],
         completed_callback: Callable[[Optional[Exception]], None],
         send_n_messages: Optional[int] = None,
+        model: Optional[str] = None,
     ) -> None:
         if not self.messages:
             raise Exception("No messages to change.")
@@ -166,7 +171,7 @@ class ChatController:
         user_message = self._get_user_message_by_id(user_message_id)
         user_message_parent = user_message.parent
         new_user_message = self._add_message(
-            text, MessageRoles.USER, user_message_parent
+            text, ChatMessageRole.USER, user_message_parent
         )
 
         if user_message_parent is None:
@@ -174,6 +179,6 @@ class ChatController:
         else:
             user_message_parent.childs.append(new_user_message)
 
-        await self._generate_response_for_message(
-            new_user_message, callback, completed_callback, send_n_messages
+        self._generate_response_for_message(
+            new_user_message, callback, completed_callback, send_n_messages, model
         )

@@ -14,13 +14,14 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QTimer
 
-from ui.icons import SEND_ICON
+from ui.icons import Icon, get_icon
 
 
 class ChatPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setup_ui()
+        self.update_theme_ui()
 
     def setup_ui(self):
         # Main vertical layout for the widget
@@ -51,7 +52,6 @@ class ChatPanel(QWidget):
 
         self.send_button = QPushButton()
         self.send_button.setFixedHeight(32)
-        self.send_button.setIcon(SEND_ICON)
         self.send_button.setToolTip("Send text")
         self.send_button.clicked.connect(self._handle_send)
 
@@ -60,31 +60,25 @@ class ChatPanel(QWidget):
         self.layout.addLayout(input_layout)
 
     def _adjust_input_height(self):
-        """Adjust the height of the input box based on its content."""
         doc_height = self.input_text.document().size().height()
         new_height = max(35, min(150, doc_height + 10))
         self.input_text.setFixedHeight(new_height)
 
     def _handle_send(self):
-        """Handle sending a message: add user message and simulate bot response."""
         text = self.input_text.toPlainText().strip()
         if text:
             self.add_user_message(text)
             self.clear_prompt()
-            # Simulate an API response after a short delay
             QTimer.singleShot(500, self.simulate_response)
 
     def send_message(self, text):
-        """Handle sending a message: add user message and simulate bot response."""
         text = text.strip()
         if text:
             self.add_user_message(text)
             self.clear_prompt()
-            # Simulate an API response after a short delay
             QTimer.singleShot(500, self.simulate_response)
 
     def add_user_message(self, text):
-        """Display a user message aligned to the right."""
         msg_widget = QLabel(text, self)
         msg_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
         msg_widget.setWordWrap(True)
@@ -96,7 +90,6 @@ class ChatPanel(QWidget):
         self.scroll_to_bottom()
 
     def add_bot_message(self, text):
-        """Display a bot message with markdown support and action buttons."""
         # Convert markdown text to HTML for rich text display
         html_text = markdown.markdown(text)
         msg_widget = QLabel(html_text, self)
@@ -130,24 +123,20 @@ class ChatPanel(QWidget):
         self.scroll_to_bottom()
 
     def handle_regenerate(self, msg_widget):
-        """Simulate regenerating the bot response with new dummy text."""
         new_text = lorem.paragraph()
         new_text += " \n\n**bold**\n\n1. Something\n\n2. Another\n\n3. FDFDF\n\n[asdf](https://google.com)"
         html_text = markdown.markdown(new_text)
         msg_widget.setText(html_text)
 
     def handle_copy(self, text):
-        """Copy the message text to the system clipboard."""
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
 
     def simulate_response(self):
-        """Simulate an API response using the lorem library."""
         dummy_text = lorem.paragraph()
         self.add_bot_message(dummy_text)
 
     def scroll_to_bottom(self):
-        """Ensure the latest message is visible."""
         self.scroll_area.verticalScrollBar().setValue(
             self.scroll_area.verticalScrollBar().maximum()
         )
@@ -157,3 +146,6 @@ class ChatPanel(QWidget):
 
     def clear_prompt(self):
         self.input_text.clear()
+
+    def update_theme_ui(self):
+        self.send_button.setIcon(get_icon(Icon.SEND))

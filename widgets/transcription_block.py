@@ -7,8 +7,10 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal
-from services.record_audio.AudioSourceTypes import AudioSourceTypes
-from ui.icons import COPY_ICON, DELETE_ICON, SEND_ICON
+from PySide6.QtGui import QPalette, QColor
+
+from services.record_audio.AudioSourceType import AudioSourceType
+from ui.icons import Icon, get_icon
 
 
 class TranscriptionBlockWidget(QWidget):
@@ -16,25 +18,22 @@ class TranscriptionBlockWidget(QWidget):
     selected_changed_by_click = Signal(bool)
     forward_signal = Signal(str)
 
-    def __init__(self, text: str, source: AudioSourceTypes):
+    def __init__(self, text: str, source: AudioSourceType):
         super().__init__()
         self.text = text
         self.source = source
         self.selected = False
-        self.base_style = "padding: 3 px; background: " + (
-            "#0d0;" if source == AudioSourceTypes.MIC else "#d00;"
-        )
         self._setup_ui()
+        self.update_theme_ui()
 
     def _setup_ui(self):
         self.main_layout = QHBoxLayout(self)
-        self.main_layout.setContentsMargins(20, 0, 5, 0)
+        self.main_layout.setContentsMargins(20, 0, 10, 0)
         self.main_layout.setSpacing(10)
 
         self.label = QLabel(self.text)
         self.label.setWordWrap(True)
         self.label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.label.setStyleSheet(self.base_style)
         self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.main_layout.addWidget(self.label)
 
@@ -50,17 +49,15 @@ class TranscriptionBlockWidget(QWidget):
         self.label.setText(text)
 
     def _update_selection_style(self):
-        """Update the style to indicate selection."""
         if self.selected:
             self.label.setStyleSheet(
-                self.base_style
-                + " padding: 0; border: 3px solid blue; border-radius: 5px;"
+                self.label_style
+                + " margin: 0; border: 3px solid blue; border-radius: 5px;"
             )
         else:
-            self.label.setStyleSheet(self.base_style)
+            self.label.setStyleSheet(self.label_style)
 
     def mousePressEvent(self, event):
-        """Toggle selection when the widget is clicked."""
         if event.button() == Qt.LeftButton:
             self.selected = not self.selected
             self._update_selection_style()
@@ -81,11 +78,10 @@ class TranscriptionBlockWidget(QWidget):
         self._update_selection_style()
 
     def show_context_menu(self, position):
-        """Create and display the right-click context menu."""
         menu = QMenu(self)
-        copy_action = menu.addAction(COPY_ICON, "Copy")
-        delete_action = menu.addAction(DELETE_ICON, "Delete")
-        forward_action = menu.addAction(SEND_ICON, "Forward to chat")
+        copy_action = menu.addAction(get_icon(Icon.COPY), "Copy")
+        delete_action = menu.addAction(get_icon(Icon.DELETE), "Delete")
+        forward_action = menu.addAction(get_icon(Icon.SEND), "Forward to chat")
 
         action = menu.exec(position)
         if action == copy_action:
@@ -94,3 +90,23 @@ class TranscriptionBlockWidget(QWidget):
             self.delete_self()
         elif action == forward_action:
             self.forward_signal.emit(self.text)
+
+    def update_theme_ui(self):
+        app = QApplication.instance()
+        palette: QPalette = app.palette()
+        color: QColor = palette.color(QPalette.ColorRole.Text)
+
+        # Converting the RGB color values to compute luminance by the following formula:
+        # Y = 0.2126 * R + 0.7152 * G + 0.0722 * B
+        y = 0.2126 * color.red() + 0.7152 * color.green() + 0.0722 * color.blue()
+
+        # Check if the value is nearer to 0 (black) or to 255 (white)
+        if y < 128: # White theme as text color is black
+            mic_color = "#BBFFC1"  # Light Green
+            file_color = "#FEC9C8"  # Light Red
+        else:  # Dark theme as text color is white
+            mic_color = "#006400"  # Dark Green
+            file_color = "#8B0000"  # Dark Red
+
+        self.label_style = f"margin: 3px; border: 0; background: {mic_color if self.source == AudioSourceType.MIC else file_color};"
+        self.label.setStyleSheet(self.label_style)
