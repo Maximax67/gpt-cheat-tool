@@ -25,6 +25,19 @@ TRANSCRIPTION_MODEL = os.environ.get("TRANSCRIPTION_MODEL")
 ADJUSTING_FOR_NOISE_MESSAGE = "[ Adjusting for ambient noise ]"
 
 
+class RecorderInitTask(QThread):
+    initialized = Signal(object, object)
+    error = Signal(str)
+
+    def run(self):
+        try:
+            mic = MicRecorder()
+            speaker = SpeakerRecorder()
+            self.initialized.emit(mic, speaker)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
 class AdjustForNoiseTask(QThread):
     noise_adjusted = Signal()
 
@@ -87,8 +100,16 @@ class TranscriptionPanel(QWidget):
         self.mic_enabled = True
         self.speaker_enabled = True
 
-        self.mic_record_audio = MicRecorder()
-        self.speaker_record_audio = SpeakerRecorder()
+        self.recorder_init_thread = RecorderInitTask()
+        self.recorder_init_thread.initialized.connect(self._on_recorders_initialized)
+        self.recorder_init_thread.error.connect(self._on_recorder_error)
+        self.recorder_init_thread.start()
+
+    def _on_recorders_initialized(
+        self, mic_recorder: MicRecorder, speaker_recorder: SpeakerRecorder
+    ):
+        self.mic_record_audio = mic_recorder
+        self.speaker_record_audio = speaker_recorder
 
         self.mic_audio_queue: deque[Tuple[datetime, bytes]] = deque()
         self.speaker_audio_queue: deque[Tuple[datetime, bytes]] = deque()
@@ -140,6 +161,9 @@ class TranscriptionPanel(QWidget):
         self.speaker_transcribe_thread.start()
 
         self._mic_init_thread.start()
+
+    def _on_recorder_error(self, error_message: str):
+        print(f"Error initializing recorders: {error_message}")
 
     def _on_mic_noise_adjusted(self):
         if self.mic_enabled:
