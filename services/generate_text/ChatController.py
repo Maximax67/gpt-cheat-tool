@@ -71,10 +71,11 @@ class ChatController:
         self, text: str, role: ChatMessageRole, parent: Optional[ChatMessage]
     ) -> ChatMessage:
         message_id = len(self.messages)
-        message = ChatMessage(message_id, text, role, parent)
-        if parent:
-            parent.childs.append(message)
+        if not parent:
+            parent = self.messages[0]
 
+        message = ChatMessage(message_id, text, role, parent)
+        parent.childs.append(message)
         self.messages.append(message)
 
         return message
@@ -96,7 +97,7 @@ class ChatController:
             raise ValueError("Message with id user_message_id not found")
 
         user_message = self.messages[user_message_id]
-        if user_message.role != ChatMessageRole.ASSISTANT:
+        if user_message.role != ChatMessageRole.USER:
             raise ValueError("Message with id user_message_id is not an user message")
 
         return user_message
@@ -112,30 +113,7 @@ class ChatController:
         chat_history = self._form_messages_list(message, send_n_messages)
         response_message = self._add_message("", ChatMessageRole.ASSISTANT, message)
 
-        skipping_think = False
-        write_to_think_buffer = True
-        think_buffer = ""
-
         def internal_callback(text_chunk: str):
-            nonlocal skipping_think, think_buffer, write_to_think_buffer
-
-            if write_to_think_buffer:
-                think_buffer += text_chunk
-
-                if skipping_think:
-                    end_idx = think_buffer.rfind("</think>")
-                    if end_idx != -1:
-                        skipping_think = False
-                        response_message.text = think_buffer[
-                            end_idx + len("</think>") :
-                        ].lstrip()
-                    return
-
-                if think_buffer.strip().startswith("<think>"):
-                    skipping_think = True
-                    return
-
-            think_buffer = ""
             response_message.text += text_chunk
             callback(response_message.id)
 
@@ -222,4 +200,4 @@ class ChatController:
             new_user_message, callback, completed_callback, send_n_messages, model
         )
 
-        return user_message, response_message
+        return new_user_message, response_message

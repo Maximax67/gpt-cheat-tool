@@ -132,29 +132,7 @@ class QuickAnswerPanel(QWidget):
             }
         )
 
-        skipping_think = False
-        write_to_think_buffer = True
-        think_buffer = ""
-
         def callback(text_chunk: str):
-            nonlocal skipping_think, think_buffer, write_to_think_buffer
-
-            if write_to_think_buffer:
-                think_buffer += text_chunk
-
-                if skipping_think:
-                    end_idx = think_buffer.rfind("</think>")
-                    if end_idx != -1:
-                        skipping_think = False
-                        self.text = think_buffer[end_idx + len("</think>") :].lstrip()
-                        self.update_label()
-                    return
-
-                if think_buffer.strip().startswith("<think>"):
-                    skipping_think = True
-                    return
-
-            think_buffer = ""
             self.text += text_chunk
             self.update_label()
 

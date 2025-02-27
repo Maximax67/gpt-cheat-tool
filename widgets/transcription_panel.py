@@ -51,6 +51,10 @@ class TranscriptionPanel(QWidget):
         main_layout.setContentsMargins(5, 5, 5, 5)
 
         self.transcription_list = TranscriptionListWidget()
+        self.transcription_list.selection_changed.connect(
+            self._handle_selection_changed
+        )
+        self.transcription_list.forward_message_signal.connect(self.forward_signal.emit)
         main_layout.addWidget(self.transcription_list)
 
         button_layout = QHBoxLayout()
@@ -248,10 +252,13 @@ class TranscriptionPanel(QWidget):
         if not selected_blocks:
             return
 
-        combined_text = "".join(block.text + "\n" for block in selected_blocks).strip()
-        if combined_text:
-            self.forward_signal.emit(combined_text)
+        formatted_text = ""
+        for block in selected_blocks:
+            formatted_text += f"[{block.source.value}]: {block.text}\n\n"
 
+        formatted_text = formatted_text.rstrip()
+
+        self.forward_signal.emit(formatted_text)
         self.transcription_list.deselect_all()
         self.select_button.setChecked(False)
 

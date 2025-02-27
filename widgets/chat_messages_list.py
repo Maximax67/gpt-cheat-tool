@@ -13,6 +13,7 @@ from widgets.chat_message import ChatMessageWidget
 class ChatMessagesListWidget(QScrollArea):
     regenerate_requested = Signal(ChatMessage)
     message_switch_signal = Signal(ChatMessage)
+    edit_message_signal = Signal(ChatMessage, str)
 
     def __init__(self):
         super().__init__()
@@ -32,10 +33,13 @@ class ChatMessagesListWidget(QScrollArea):
         self.setWidget(self.container)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-    def add_message(self, message: ChatMessage) -> ChatMessageWidget:
+    def add_message(
+        self, message: ChatMessage, scroll: bool = True
+    ) -> ChatMessageWidget:
         message_widget = ChatMessageWidget(message)
         message_widget.regenerate_requested.connect(self.regenerate_requested.emit)
         message_widget.message_switch_signal.connect(self.message_switch_signal.emit)
+        message_widget.edit_message_signal.connect(self.edit_message_signal.emit)
 
         if self.last_message_widget:
             last_message_id = self.last_message_widget.message.id
@@ -48,7 +52,9 @@ class ChatMessagesListWidget(QScrollArea):
 
         self._messages[message.id] = (message_widget, None)
         self.layout.addWidget(message_widget)
-        self.scroll_to_bottom()
+
+        if scroll:
+            self.scroll_to_bottom()
 
         return message_widget
 
@@ -82,8 +88,8 @@ class ChatMessagesListWidget(QScrollArea):
     def clear_chat(self):
         self._messages = {}
         self.last_message_widget = None
-        for i in range(self.layout.count()):
-            widget: ChatMessageWidget = self.layout.itemAt(i).widget()
+        for _ in range(self.layout.count()):
+            widget: ChatMessageWidget = self.layout.itemAt(0).widget()
             if widget:
                 self._remove_widget(widget)
 

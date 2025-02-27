@@ -18,6 +18,7 @@ class Icon(Enum):
     ARROW_LEFT = "./assets/icons/arrow-left.svg"
     ARROW_RIGHT = "./assets/icons/arrow-right.svg"
     SHEVRONS_RIGHT = "./assets/icons/chevrons-right.svg"
+    EDIT = "./assets/icons/edit-2.svg"
 
 
 _cached_icons: Dict[Icon, Tuple[QColor, QIcon]] = {}

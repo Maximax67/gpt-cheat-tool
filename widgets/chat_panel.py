@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QPushButton,
-    QTextEdit,
+    QPlainTextEdit,
 )
 from PySide6.QtCore import QMetaObject, Qt, Q_ARG, Slot
 
@@ -37,13 +37,14 @@ class ChatPanel(QWidget):
         self.chat_messages_list.message_switch_signal.connect(
             self._handle_switch_message
         )
+        self.chat_messages_list.edit_message_signal.connect(self._handle_edit_message)
         self.layout.addWidget(self.chat_messages_list)
 
         # Input area with dynamically resizing text edit and send button
         input_layout = QHBoxLayout()
         input_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.input_text = QTextEdit(self)
+        self.input_text = QPlainTextEdit(self)
         self.input_text.setPlaceholderText("Type your message...")
         self.input_text.setFixedHeight(35)
         self.input_text.textChanged.connect(self._adjust_input_height)
@@ -103,7 +104,7 @@ class ChatPanel(QWidget):
             self._handle_update_message,
             self._handle_complete_message,
         )
-        self.chat_messages_list.add_message(response_message)
+        self.chat_messages_list.add_message(response_message, False)
 
     def _handle_switch_message(self, message: ChatMessage):
         parent = message.parent
@@ -115,12 +116,34 @@ class ChatPanel(QWidget):
         else:
             self.chat_messages_list.delete_message_thread(parent.id)
 
-        self.chat_messages_list.add_message(message)
+        self.chat_messages_list.add_message(message, False)
 
         current_message = message
         while len(current_message.childs):
             current_message = current_message.childs[-1]
-            self.chat_messages_list.add_message(current_message)
+            self.chat_messages_list.add_message(current_message, False)
+
+    def _handle_edit_message(self, message: ChatMessage, text: str):
+        parent = message.parent
+        if parent is None:
+            return
+
+        if parent.role == ChatMessageRole.SYSTEM:
+            self.chat_messages_list.clear_chat()
+        else:
+            self.chat_messages_list.delete_message_thread(parent.id)
+
+        self.is_generating = True
+        self.send_button.setDisabled(True)
+        user_message, response_message = self.chat_controller.change_user_message(
+            text,
+            message.id,
+            self._handle_update_message,
+            self._handle_complete_message,
+        )
+
+        self.chat_messages_list.add_message(user_message, False)
+        self.chat_messages_list.add_message(response_message, False)
 
     def send_message(self, text: str):
         text = text.strip()
@@ -141,8 +164,8 @@ class ChatPanel(QWidget):
             assistant_message_id,
         )
 
-        self.chat_messages_list.add_message(user_message)
-        self.chat_messages_list.add_message(response_message)
+        self.chat_messages_list.add_message(user_message, True)
+        self.chat_messages_list.add_message(response_message, True)
 
     def get_prompt_text(self):
         return self.input_text.toPlainText().strip()

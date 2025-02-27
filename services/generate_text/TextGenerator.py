@@ -73,7 +73,6 @@ class GroqTextGenerator(AbstractTextGenerator):
             if not model:
                 model = self.default_model
 
-            print("API CALL")
             stream = self.client.chat.completions.create(
                 messages=chat_history,
                 model=model,
@@ -81,6 +80,7 @@ class GroqTextGenerator(AbstractTextGenerator):
                 max_tokens=self.max_tokens,
                 top_p=self.top_p,
                 stream=self.stream,
+                reasoning_format="hidden",
             )
 
             for chunk in stream:
@@ -91,5 +91,4 @@ class GroqTextGenerator(AbstractTextGenerator):
             print(e)
             completed_callback(e)
         else:
-            print("DONE")
             completed_callback(None)

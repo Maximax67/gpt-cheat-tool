@@ -117,7 +117,7 @@ class TranscriptionBlockWidget(QWidget):
         elif action == delete_action:
             self.delete_self()
         elif action == forward_action:
-            self.forward_signal.emit(self.text)
+            self.forward_signal.emit(f"[{self.source.value}]: {self.text}")
         elif back_action and action == back_action:
             self.text_history_index -= 1
             self._set_text_from_history()
