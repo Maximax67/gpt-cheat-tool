@@ -154,8 +154,8 @@ class QuickAnswerPanel(QWidget):
                     skipping_think = True
                     return
 
-            self.text += text_chunk
             think_buffer = ""
+            self.text += text_chunk
             self.update_label()
 
         def completed_callback(exception: Optional[Exception]):

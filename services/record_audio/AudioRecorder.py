@@ -1,6 +1,8 @@
-from queue import Queue
-from datetime import datetime
 import pyaudiowpatch as pyaudio
+
+from collections import deque
+from datetime import datetime
+from typing import Tuple
 
 import services.record_audio.custom_speech_recognition as sr
 from services.record_audio.AudioSourceType import AudioSourceType
@@ -13,7 +15,7 @@ DYNAMIC_ENERGY_THRESHOLD = False
 class BaseRecorder:
     source_type = None
 
-    def __init__(self, source, device_name):
+    def __init__(self, source: sr.Microphone, device_name: str):
         self.recorder = sr.Recognizer()
         self.recorder.energy_threshold = ENERGY_THRESHOLD
         self.recorder.dynamic_energy_threshold = DYNAMIC_ENERGY_THRESHOLD
@@ -33,10 +35,10 @@ class BaseRecorder:
 
         print(f"[INFO] Completed ambient noise adjustment for {self.device_name}.")
 
-    def record_into_queue(self, audio_queue: Queue):
+    def record_into_queue(self, audio_queue: deque[Tuple[datetime, bytes]]):
         def record_callback(_, audio: sr.AudioData) -> None:
             data = audio.get_raw_data()
-            audio_queue.put((self.source_type, data, datetime.now()))
+            audio_queue.append((data, datetime.now()))
 
         self.stopper = self.recorder.listen_in_background(
             self.source, record_callback, phrase_time_limit=RECORD_TIMEOUT

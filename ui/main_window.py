@@ -3,6 +3,7 @@ import os
 from PySide6.QtWidgets import QMainWindow, QSplitter, QWidget, QHBoxLayout, QVBoxLayout
 from PySide6.QtCore import Qt
 
+from services.generate_text.ChatController import ChatController
 from services.generate_text.TextGenerator import GroqTextGenerator
 from services.groq import groq_client
 
@@ -17,6 +18,7 @@ from ui.themes import Theme, ThemeManager
 
 QUICK_ANSWER_MESSAGE_CONTEXT = 5
 QUICK_ANSWER_DEFAULT_PROMPT = "You have a poor transcript of speech below. Provide an answer based on the conversation. Give a straightforward response to help user answer in current situation. Audio recorded from user microphone labeled as [MIC] and audio from user speakers labeled as [SPEAKER]. Imagine that you are the person labeled as [MIC]. DO NOT ask to repeat, and DO NOT ask for clarification. Just direct answer."
+CHAT_DEFAULT_PROMPT = None
 QUICK_ANSWER_MODEL = os.environ.get("QUICK_ANSWER_MODEL")
 
 
@@ -43,8 +45,11 @@ class MainWindow(QMainWindow):
         splitter_horizontal = QSplitter(Qt.Horizontal)
         main_layout.addWidget(splitter_horizontal)
 
+        text_generator = GroqTextGenerator(groq_client, QUICK_ANSWER_MODEL)
+        chat_controller = ChatController(text_generator, CHAT_DEFAULT_PROMPT)
+
         # Left panel: Chat UI
-        self.chat_panel = ChatPanel()
+        self.chat_panel = ChatPanel(chat_controller)
         splitter_horizontal.addWidget(self.chat_panel)
 
         # Right panel: Quick Answer (top), Transcription (middle) and Control Buttons (bottom)
@@ -54,10 +59,8 @@ class MainWindow(QMainWindow):
 
         splitter_vertical = QSplitter(Qt.Vertical)
 
-        qucik_anwer_text_generator = GroqTextGenerator(groq_client, QUICK_ANSWER_MODEL)
-
         self.quick_answer_panel = QuickAnswerPanel(
-            qucik_anwer_text_generator, QUICK_ANSWER_DEFAULT_PROMPT
+            text_generator, QUICK_ANSWER_DEFAULT_PROMPT
         )
         self.quick_answer_panel.forward_signal.connect(
             self.forward_transcription_to_chat

@@ -1,25 +1,28 @@
-import lorem
-import markdown
-
 from PySide6.QtWidgets import (
-    QApplication,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
     QPushButton,
     QTextEdit,
-    QLabel,
-    QScrollArea,
-    QFrame,
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QMetaObject, Qt, Q_ARG, Slot
 
+from services.generate_text.ChatController import ChatController
+
+from services.generate_text.Message import ChatMessage, ChatMessageRole
 from ui.icons import Icon, get_icon
+from widgets.chat_messages_list import ChatMessagesListWidget
 
 
 class ChatPanel(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+
+    def __init__(
+        self,
+        chat_controller: ChatController,
+    ):
+        super().__init__()
+        self.chat_controller = chat_controller
+        self.is_generating = False
         self.setup_ui()
         self.update_theme_ui()
 
@@ -29,17 +32,12 @@ class ChatPanel(QWidget):
         self.layout.setContentsMargins(5, 5, 5, 5)
         self.layout.setSpacing(5)
 
-        # Scroll area to hold messages
-        self.scroll_area = QScrollArea(self)
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
-        self.messages_widget = QWidget()
-        self.messages_layout = QVBoxLayout(self.messages_widget)
-        self.messages_layout.setAlignment(Qt.AlignTop)
-        self.scroll_area.setWidget(self.messages_widget)
-        self.layout.addWidget(self.scroll_area)
+        self.chat_messages_list = ChatMessagesListWidget()
+        self.chat_messages_list.regenerate_requested.connect(self._handle_regenerate)
+        self.chat_messages_list.message_switch_signal.connect(
+            self._handle_switch_message
+        )
+        self.layout.addWidget(self.chat_messages_list)
 
         # Input area with dynamically resizing text edit and send button
         input_layout = QHBoxLayout()
@@ -47,13 +45,13 @@ class ChatPanel(QWidget):
 
         self.input_text = QTextEdit(self)
         self.input_text.setPlaceholderText("Type your message...")
-        self.input_text.setFixedHeight(32)
+        self.input_text.setFixedHeight(35)
         self.input_text.textChanged.connect(self._adjust_input_height)
 
         self.send_button = QPushButton()
-        self.send_button.setFixedHeight(32)
+        self.send_button.setFixedHeight(35)
         self.send_button.setToolTip("Send text")
-        self.send_button.clicked.connect(self._handle_send)
+        self.send_button.clicked.connect(self._handle_send_button_click)
 
         input_layout.addWidget(self.input_text)
         input_layout.addWidget(self.send_button)
@@ -64,82 +62,87 @@ class ChatPanel(QWidget):
         new_height = max(35, min(150, doc_height + 10))
         self.input_text.setFixedHeight(new_height)
 
-    def _handle_send(self):
-        text = self.input_text.toPlainText().strip()
-        if text:
-            self.add_user_message(text)
-            self.clear_prompt()
-            QTimer.singleShot(500, self.simulate_response)
+    @Slot(int)
+    def update_message(self, id: int):
+        self.chat_messages_list.update_message_text(id)
 
-    def send_message(self, text):
+    @Slot(int)
+    def complete_message(self, id: int):
+        self.chat_messages_list.update_message_text(id)
+        self.is_generating = False
+        self.send_button.setDisabled(False)
+
+    def _handle_update_message(self, id: int):
+        QMetaObject.invokeMethod(
+            self, "update_message", Qt.QueuedConnection, Q_ARG(int, id)
+        )
+
+    def _handle_complete_message(self, id: int):
+        QMetaObject.invokeMethod(
+            self, "complete_message", Qt.QueuedConnection, Q_ARG(int, id)
+        )
+
+    def _handle_send_button_click(self):
+        if not self.is_generating:
+            self.send_message(self.get_prompt_text())
+
+    def _handle_regenerate(self, message: ChatMessage):
+        parent = message.parent
+        if parent is None:
+            return
+
+        if parent.role == ChatMessageRole.SYSTEM:
+            self.chat_messages_list.clear_chat()
+        else:
+            self.chat_messages_list.delete_message_thread(parent.id)
+
+        self.is_generating = True
+        self.send_button.setDisabled(True)
+        response_message = self.chat_controller.regenerate_message(
+            message.id,
+            self._handle_update_message,
+            self._handle_complete_message,
+        )
+        self.chat_messages_list.add_message(response_message)
+
+    def _handle_switch_message(self, message: ChatMessage):
+        parent = message.parent
+        if parent is None:
+            return
+
+        if parent.role == ChatMessageRole.SYSTEM:
+            self.chat_messages_list.clear_chat()
+        else:
+            self.chat_messages_list.delete_message_thread(parent.id)
+
+        self.chat_messages_list.add_message(message)
+
+        current_message = message
+        while len(current_message.childs):
+            current_message = current_message.childs[-1]
+            self.chat_messages_list.add_message(current_message)
+
+    def send_message(self, text: str):
         text = text.strip()
         if text:
             self.add_user_message(text)
             self.clear_prompt()
-            QTimer.singleShot(500, self.simulate_response)
 
-    def add_user_message(self, text):
-        msg_widget = QLabel(text, self)
-        msg_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        msg_widget.setWordWrap(True)
-        container = QFrame(self)
-        container_layout = QVBoxLayout(container)
-        container_layout.addWidget(msg_widget)
-        container_layout.setAlignment(Qt.AlignRight)
-        self.messages_layout.addWidget(container)
-        self.scroll_to_bottom()
+    def add_user_message(self, text: str):
+        last_message = self.chat_messages_list.get_last_message()
+        assistant_message_id = last_message.id if last_message else None
 
-    def add_bot_message(self, text):
-        # Convert markdown text to HTML for rich text display
-        html_text = markdown.markdown(text)
-        msg_widget = QLabel(html_text, self)
-        msg_widget.setWordWrap(True)
-        msg_widget.setTextFormat(Qt.RichText)
-        msg_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
-
-        # Create buttons for regenerating and copying the message
-        regenerate_btn = QPushButton("Regenerate", self)
-        copy_btn = QPushButton("Copy", self)
-        regenerate_btn.setFixedWidth(80)
-        copy_btn.setFixedWidth(80)
-
-        btn_layout = QHBoxLayout()
-        btn_layout.addWidget(regenerate_btn)
-        btn_layout.addWidget(copy_btn)
-        btn_layout.addStretch()
-
-        # Container for the bot message and its buttons
-        container = QFrame(self)
-        container_layout = QVBoxLayout(container)
-        container_layout.addWidget(msg_widget)
-        container_layout.addLayout(btn_layout)
-        container_layout.setAlignment(Qt.AlignLeft)
-
-        # Connect button actions; regenerate updates the message, copy sends text to clipboard
-        regenerate_btn.clicked.connect(lambda: self.handle_regenerate(msg_widget))
-        copy_btn.clicked.connect(lambda: self.handle_copy(text))
-
-        self.messages_layout.addWidget(container)
-        self.scroll_to_bottom()
-
-    def handle_regenerate(self, msg_widget):
-        new_text = lorem.paragraph()
-        new_text += " \n\n**bold**\n\n1. Something\n\n2. Another\n\n3. FDFDF\n\n[asdf](https://google.com)"
-        html_text = markdown.markdown(new_text)
-        msg_widget.setText(html_text)
-
-    def handle_copy(self, text):
-        clipboard = QApplication.clipboard()
-        clipboard.setText(text)
-
-    def simulate_response(self):
-        dummy_text = lorem.paragraph()
-        self.add_bot_message(dummy_text)
-
-    def scroll_to_bottom(self):
-        self.scroll_area.verticalScrollBar().setValue(
-            self.scroll_area.verticalScrollBar().maximum()
+        self.is_generating = True
+        self.send_button.setDisabled(True)
+        user_message, response_message = self.chat_controller.generate_response(
+            text,
+            self._handle_update_message,
+            self._handle_complete_message,
+            assistant_message_id,
         )
+
+        self.chat_messages_list.add_message(user_message)
+        self.chat_messages_list.add_message(response_message)
 
     def get_prompt_text(self):
         return self.input_text.toPlainText().strip()
@@ -149,3 +152,4 @@ class ChatPanel(QWidget):
 
     def update_theme_ui(self):
         self.send_button.setIcon(get_icon(Icon.SEND))
+        self.chat_messages_list.update_theme_ui()

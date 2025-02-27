@@ -1,12 +1,11 @@
-from typing import Callable
-import wave
 import io
-from queue import Queue
-from datetime import timedelta
-from services.record_audio.AudioSourceType import AudioSourceType
+import time
+import wave
+
+from collections import deque
+from typing import Callable, Optional, Tuple
+from datetime import datetime, timedelta
 from services.transcribe.Transcriber import AbstractTranscriber
-import services.record_audio.custom_speech_recognition as sr
-import pyaudiowpatch as pyaudio
 
 PHRASE_TIMEOUT = 5
 MAX_PHRASE_LENGTH = 17
@@ -16,124 +15,99 @@ class SourceTranscriber:
 
     def __init__(
         self,
-        mic_source: sr.Microphone,
-        speaker_source: sr.Microphone,
         transcriber: AbstractTranscriber,
+        sample_rate: int,
+        sample_width: int,
+        channels: int,
     ):
         self.transcriber = transcriber
-        self.audio_sources = {
-            AudioSourceType.MIC: {
-                "sample_rate": mic_source.SAMPLE_RATE,
-                "sample_width": mic_source.SAMPLE_WIDTH,
-                "channels": mic_source.channels,
-                "last_sample": bytes(),
-                "first_spoken": None,
-                "last_spoken": None,
-                "new_phrase": True,
-                "process_data_func": self.process_mic_data,
-            },
-            AudioSourceType.SPEAKER: {
-                "sample_rate": speaker_source.SAMPLE_RATE,
-                "sample_width": speaker_source.SAMPLE_WIDTH,
-                "channels": speaker_source.channels,
-                "last_sample": bytes(),
-                "first_spoken": None,
-                "last_spoken": None,
-                "new_phrase": True,
-                "process_data_func": self.process_speaker_data,
-            },
-        }
+        self.sample_rate = sample_rate
+        self.sample_width = sample_width
+        self.channels = channels
+        self.last_sample = bytes()
+        self.first_spoken: Optional[datetime] = None
+        self.last_spoken: Optional[datetime] = None
+        self.new_phrase = True
 
     def transcribe_audio_queue(
         self,
-        audio_queue: Queue,
-        callback: Callable[[AudioSourceType, str, bool], None],
+        audio_queue: deque[Tuple[datetime, bytes]],
+        callback: Callable[[str, bool], None],
     ):
         while True:
-            source_type, data, time_spoken = audio_queue.get()
-            self.update_last_sample_and_phrase_status(source_type, data, time_spoken)
-            source_info = self.audio_sources[source_type]
+            if not len(audio_queue):
+                time.sleep(0.01)
+                continue
 
-            text = ""
+            data, time_spoken = audio_queue.popleft()
+
+            if self._is_same_phrase(time_spoken):
+                self._continue_phrase(data, time_spoken)
+            else:
+                self._start_new_phrase(data, time_spoken)
+
+            # Now, check if there are additional items for the same source that are still part of the same phrase.
+            while len(audio_queue):
+                try:
+                    next_item = audio_queue.popleft()
+                except Exception:
+                    break
+
+                next_data, next_time_spoken = next_item
+
+                # Check whether it belongs to the same phrase.
+                if self._is_same_phrase(next_time_spoken):
+                    # Accumulate the data for the same phrase.
+                    self._continue_phrase(next_data, next_time_spoken)
+                else:
+                    # New phrase detected – put the item back for later and stop accumulating.
+                    audio_queue.appendleft(next_item)
+                    break
+
+            # Now process the accumulated data for the current phrase.
             try:
-                wav_buffer = source_info["process_data_func"](
-                    source_info["last_sample"]
-                )
-
+                wav_buffer = self._convert_to_buffer(self.last_sample)
                 text = self.transcriber.get_transcription(wav_buffer, "wav").strip()
             except Exception as e:
                 print(e)
+                text = ""
 
-            if text != "" and text.lower() != "you" and text.lower() != "thank you.":
-                self.update_transcript(source_type, text, callback)
+            if text and text.lower() not in ["you", "thank you.", "."]:
+                callback(text, self.new_phrase)
+            else:
+                self.last_spoken = None
 
-    def update_last_sample_and_phrase_status(self, source_type, data, time_spoken):
-        source_info = self.audio_sources[source_type]
-        last_spoken = source_info["last_spoken"]
-        first_spoken = source_info["first_spoken"]
+    def _is_same_phrase(self, time_spoken: datetime) -> bool:
+        if self.last_spoken is None or self.first_spoken is None:
+            return False
 
-        if not first_spoken:
-            first_spoken = last_spoken
-            source_info["first_spoken"] = last_spoken
+        if time_spoken - self.last_spoken > timedelta(seconds=PHRASE_TIMEOUT):
+            return False
 
-        if last_spoken and first_spoken:
-            print(time_spoken - first_spoken)
-            print(time_spoken - first_spoken < timedelta(seconds=MAX_PHRASE_LENGTH))
+        if time_spoken - self.first_spoken > timedelta(seconds=MAX_PHRASE_LENGTH):
+            return False
 
-        if (
-            not last_spoken
-            or not first_spoken
-            or (
-                time_spoken - last_spoken > timedelta(seconds=PHRASE_TIMEOUT)
-                or time_spoken - first_spoken > timedelta(seconds=MAX_PHRASE_LENGTH)
-            )
-        ):
-            print("NEW PHRASE")
-            source_info["last_sample"] = bytes()
-            source_info["new_phrase"] = True
-            source_info["first_spoken"] = time_spoken
-        else:
-            print("UPDATE OLD PHRASE")
-            source_info["new_phrase"] = False
+        return True
 
-        source_info["last_sample"] += data
-        source_info["last_spoken"] = time_spoken
+    def _start_new_phrase(self, data: bytes, time_spoken: datetime):
+        self.new_phrase = True
+        self.last_sample = data
+        self.first_spoken = time_spoken
+        self.last_spoken = time_spoken
 
-    def process_mic_data(self, data):
-        audio_data = sr.AudioData(
-            data,
-            self.audio_sources[AudioSourceType.MIC]["sample_rate"],
-            self.audio_sources[AudioSourceType.MIC]["sample_width"],
-        )
-        wav_buffer = io.BytesIO(audio_data.get_wav_data())
-        wav_buffer.seek(0)
+    def _continue_phrase(self, data: bytes, time_spoken: datetime):
+        self.new_phrase = False
+        self.last_sample += data
+        self.last_spoken = time_spoken
 
-        return wav_buffer
-
-    def process_speaker_data(self, data):
+    def _convert_to_buffer(self, data: bytearray) -> io.BytesIO:
         wav_buffer = io.BytesIO()
         with wave.open(wav_buffer, "wb") as wf:
-            wf.setnchannels(self.audio_sources[AudioSourceType.SPEAKER]["channels"])
-            p = pyaudio.PyAudio()
-            wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
-            wf.setframerate(self.audio_sources[AudioSourceType.SPEAKER]["sample_rate"])
+            wf.setnchannels(self.channels)
+            wf.setsampwidth(self.sample_width)
+            wf.setframerate(self.sample_rate)
             wf.writeframes(data)
 
         wav_buffer.seek(0)
 
         return wav_buffer
-
-    def update_transcript(
-        self,
-        source_type: AudioSourceType,
-        text: str,
-        callback: Callable[[AudioSourceType, str, bool], None],
-    ):
-        source_info = self.audio_sources[source_type]
-
-        if source_info["new_phrase"]:
-            print("NEW TRANSCRIPT BLOCK: ", text)
-            callback(source_type, text, True)
-        else:
-            print("UPDATE TRANSCRIPT: ", text)
-            callback(source_type, text, False)

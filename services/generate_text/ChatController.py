@@ -1,7 +1,7 @@
 import threading
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Tuple
 
-from services.generate_text.Message import Message, ChatMessageRole
+from services.generate_text.Message import ChatMessage, ChatMessageRole
 from services.generate_text.TextGenerator import (
     AbstractTextGenerator,
     ChatMessageDict,
@@ -11,35 +11,56 @@ from services.generate_text.TextGenerator import (
 class ChatController:
 
     def __init__(
-        self, generator: AbstractTextGenerator, system_message: Optional[str] = None
+        self,
+        text_generator: AbstractTextGenerator,
+        system_message: Optional[str] = None,
     ):
-        self.generator = generator
-        self.system_message = system_message
-        self.messages: List[Message] = []
-        self.root_messages_ids: List[int] = []
+        self.text_generator = text_generator
 
-    def get_messages_count(self) -> int:
-        return len(self.messages)
+        system_message = ChatMessage(
+            0, system_message if system_message else "", ChatMessageRole.SYSTEM, None
+        )
+        self.messages: List[ChatMessage] = [system_message]
+
+    def get_message(self, message_id: int) -> ChatMessage:
+        if message_id < 0:
+            raise ValueError("message_id < 0")
+
+        if message_id >= len(self.messages):
+            raise ValueError("message with message_id not found")
+
+        return self.messages[message_id]
 
     def clear_chat(self) -> None:
-        self.messages.clear()
-        self.root_messages_ids.clear()
+        system_message = self.messages[0]
+        self.messages = [system_message]
 
     def _form_messages_list(
-        self, message: Message, max_length: Optional[int]
+        self, message: ChatMessage, max_length: Optional[int]
     ) -> List[ChatMessageDict]:
-        message_list = []
+        message_list: List[ChatMessageDict] = []
         current_message = message
 
-        while current_message and (
-            max_length is None or len(message_list) < max_length
+        while (
+            current_message
+            and current_message.role != ChatMessageRole.SYSTEM
+            and (max_length is None or len(message_list) < max_length)
         ):
-            message_list.append(current_message)
+            message_list.append(
+                {
+                    "role": current_message.role.value,
+                    "content": current_message.text,
+                }
+            )
             current_message = current_message.parent
 
-        if self.system_message:
+        system_message_text = self.messages[0].text
+        if system_message_text:
             message_list.append(
-                {"role": ChatMessageRole.SYSTEM.value, "content": self.system_message}
+                {
+                    "role": ChatMessageRole.SYSTEM.value,
+                    "content": system_message_text,
+                }
             )
 
         message_list.reverse()
@@ -47,18 +68,18 @@ class ChatController:
         return message_list
 
     def _add_message(
-        self, text: str, role: ChatMessageRole, parent: Optional[Message]
-    ) -> Message:
+        self, text: str, role: ChatMessageRole, parent: Optional[ChatMessage]
+    ) -> ChatMessage:
         message_id = len(self.messages)
-        message = Message(message_id, text, role, parent)
-        self.messages.append(message)
+        message = ChatMessage(message_id, text, role, parent)
+        if parent:
+            parent.childs.append(message)
 
-        if parent is None:
-            self.root_messages_ids.append(message.id)
+        self.messages.append(message)
 
         return message
 
-    def _get_assistant_message_by_id(self, assistant_message_id: int) -> Message:
+    def _get_assistant_message_by_id(self, assistant_message_id: int) -> ChatMessage:
         if assistant_message_id < 0 or assistant_message_id >= len(self.messages):
             raise ValueError("Message with id assistant_message_id not found")
 
@@ -70,7 +91,7 @@ class ChatController:
 
         return assistant_message
 
-    def _get_user_message_by_id(self, user_message_id: int) -> Message:
+    def _get_user_message_by_id(self, user_message_id: int) -> ChatMessage:
         if user_message_id < 0 or user_message_id >= len(self.messages):
             raise ValueError("Message with id user_message_id not found")
 
@@ -82,38 +103,62 @@ class ChatController:
 
     def _generate_response_for_message(
         self,
-        message: Message,
-        callback: Callable[[str], None],
-        completed_callback: Callable[[Optional[Exception]], None],
+        message: ChatMessage,
+        callback: Callable[[int], None],
+        completed_callback: Callable[[int], None],
         send_n_messages: Optional[int],
         model: Optional[str],
-    ) -> None:
+    ) -> ChatMessage:
         chat_history = self._form_messages_list(message, send_n_messages)
         response_message = self._add_message("", ChatMessageRole.ASSISTANT, message)
-        message.childs.append(response_message)
 
-        def internal_callback(response_text: str):
-            response_message.text += response_text
-            callback(response_text)
+        skipping_think = False
+        write_to_think_buffer = True
+        think_buffer = ""
+
+        def internal_callback(text_chunk: str):
+            nonlocal skipping_think, think_buffer, write_to_think_buffer
+
+            if write_to_think_buffer:
+                think_buffer += text_chunk
+
+                if skipping_think:
+                    end_idx = think_buffer.rfind("</think>")
+                    if end_idx != -1:
+                        skipping_think = False
+                        response_message.text = think_buffer[
+                            end_idx + len("</think>") :
+                        ].lstrip()
+                    return
+
+                if think_buffer.strip().startswith("<think>"):
+                    skipping_think = True
+                    return
+
+            think_buffer = ""
+            response_message.text += text_chunk
+            callback(response_message.id)
 
         def internal_completed_callback(exception: Optional[Exception]):
             response_message.error = exception
-            completed_callback(exception)
+            completed_callback(response_message.id)
 
         threading.Thread(
-            target=self.generator.generate_text,
+            target=self.text_generator.generate_text,
             args=(chat_history, internal_callback, internal_completed_callback, model),
         ).start()
+
+        return response_message
 
     def generate_response(
         self,
         text: str,
-        callback: Callable[[str], None],
-        completed_callback: Callable[[Optional[Exception]], None],
+        callback: Callable[[int], None],
+        completed_callback: Callable[[int], None],
         assistant_message_id: Optional[int] = None,
         send_n_messages: Optional[int] = None,
         model: Optional[str] = None,
-    ) -> None:
+    ) -> Tuple[ChatMessage, ChatMessage]:
         if send_n_messages and send_n_messages < 1:
             raise ValueError("send_n_messages should be >= 1")
 
@@ -123,21 +168,20 @@ class ChatController:
             assistant_message = None
 
         user_message = self._add_message(text, ChatMessageRole.USER, assistant_message)
-        if user_message.parent is None:
-            self.root_messages_ids.append(user_message.id)
-
-        self._generate_response_for_message(
+        response_message = self._generate_response_for_message(
             user_message, callback, completed_callback, send_n_messages, model
         )
+
+        return user_message, response_message
 
     def regenerate_message(
         self,
         assistant_message_id: int,
-        callback: Callable[[str], None],
-        completed_callback: Callable[[Optional[Exception]], None],
+        callback: Callable[[int], None],
+        completed_callback: Callable[[int], None],
         send_n_messages: Optional[int] = None,
         model: Optional[str] = None,
-    ) -> None:
+    ) -> ChatMessage:
         if not self.messages:
             raise Exception("No messages to regenerate.")
 
@@ -149,7 +193,7 @@ class ChatController:
         if user_message is None or user_message.role != ChatMessageRole.USER:
             raise ValueError("Message does not have a parent user message")
 
-        self._generate_response_for_message(
+        return self._generate_response_for_message(
             user_message, callback, completed_callback, send_n_messages, model
         )
 
@@ -157,11 +201,11 @@ class ChatController:
         self,
         text: str,
         user_message_id: int,
-        callback: Callable[[str], None],
-        completed_callback: Callable[[Optional[Exception]], None],
+        callback: Callable[[int], None],
+        completed_callback: Callable[[int], None],
         send_n_messages: Optional[int] = None,
         model: Optional[str] = None,
-    ) -> None:
+    ) -> Tuple[ChatMessage, ChatMessage]:
         if not self.messages:
             raise Exception("No messages to change.")
 
@@ -174,11 +218,8 @@ class ChatController:
             text, ChatMessageRole.USER, user_message_parent
         )
 
-        if user_message_parent is None:
-            self.root_messages_ids.append(new_user_message.id)
-        else:
-            user_message_parent.childs.append(new_user_message)
-
-        self._generate_response_for_message(
+        response_message = self._generate_response_for_message(
             new_user_message, callback, completed_callback, send_n_messages, model
         )
+
+        return user_message, response_message

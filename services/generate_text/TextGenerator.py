@@ -73,6 +73,7 @@ class GroqTextGenerator(AbstractTextGenerator):
             if not model:
                 model = self.default_model
 
+            print("API CALL")
             stream = self.client.chat.completions.create(
                 messages=chat_history,
                 model=model,
@@ -87,6 +88,8 @@ class GroqTextGenerator(AbstractTextGenerator):
                 if text_chunk:
                     callback(text_chunk)
         except Exception as e:
+            print(e)
             completed_callback(e)
         else:
+            print("DONE")
             completed_callback(None)

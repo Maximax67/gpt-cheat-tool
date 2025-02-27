@@ -1,6 +1,8 @@
 import os
 import threading
-from queue import Queue
+
+from collections import deque
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
@@ -26,10 +28,9 @@ ADJUSTING_FOR_NOISE_MESSAGE = "[ Adjusting for ambient noise ]"
 class AdjustForNoiseTask(QThread):
     noise_adjusted = Signal()
 
-    def __init__(self, recorder: BaseRecorder, audio_queue: Queue):
+    def __init__(self, recorder: BaseRecorder):
         super().__init__()
         self.recorder = recorder
-        self.audio_queue = audio_queue
 
     def run(self):
         self.recorder.adjust_for_noise()
@@ -43,48 +44,7 @@ class TranscriptionPanel(QWidget):
         super().__init__()
         self._setup_ui()
         self.update_theme_ui()
-
-        self.mic_enabled = True
-        self.speaker_enabled = True
-
-        self.audio_queue = Queue()
-        self.mic_record_audio = MicRecorder()
-        self.speaker_record_audio = SpeakerRecorder()
-
-        self._mic_init_thread = AdjustForNoiseTask(
-            self.mic_record_audio, self.audio_queue
-        )
-        self._speaker_init_thread = AdjustForNoiseTask(
-            self.speaker_record_audio, self.audio_queue
-        )
-
-        self._mic_init_thread.noise_adjusted.connect(self._on_mic_noise_adjusted)
-        self._speaker_init_thread.noise_adjusted.connect(
-            self._on_speaker_noise_adjusted
-        )
-
-        self._adjusting_noise_audio_block = (
-            self.transcription_list.add_transcription_block(
-                AudioSourceType.MIC, ADJUSTING_FOR_NOISE_MESSAGE
-            )
-        )
-        self._mic_init_thread.start()
-
-        self.model = GroqTranscriber(groq_client, TRANSCRIPTION_MODEL)
-        self.transcriber = SourceTranscriber(
-            self.mic_record_audio.source, self.speaker_record_audio.source, self.model
-        )
-        self.transcribe_thread = threading.Thread(
-            target=self.transcriber.transcribe_audio_queue,
-            args=(self.audio_queue, self._handle_transcript_update),
-        )
-        self.transcribe_thread.daemon = True
-        self.transcribe_thread.start()
-
-        self.transcription_list.selection_changed.connect(
-            self._handle_selection_changed
-        )
-        self.transcription_list.forward_message_signal.connect(self.forward_signal.emit)
+        self._setup_audio_transcription()
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -119,9 +79,67 @@ class TranscriptionPanel(QWidget):
 
         main_layout.addLayout(button_layout)
 
+    def _setup_audio_transcription(self):
+        self.mic_enabled = True
+        self.speaker_enabled = True
+
+        self.mic_record_audio = MicRecorder()
+        self.speaker_record_audio = SpeakerRecorder()
+
+        self.mic_audio_queue: deque[Tuple[datetime, bytes]] = deque()
+        self.speaker_audio_queue: deque[Tuple[datetime, bytes]] = deque()
+
+        self._mic_init_thread = AdjustForNoiseTask(self.mic_record_audio)
+        self._speaker_init_thread = AdjustForNoiseTask(self.speaker_record_audio)
+
+        self._mic_init_thread.noise_adjusted.connect(self._on_mic_noise_adjusted)
+        self._speaker_init_thread.noise_adjusted.connect(
+            self._on_speaker_noise_adjusted
+        )
+
+        self._adjusting_noise_audio_block = (
+            self.transcription_list.add_transcription_block(
+                AudioSourceType.SPEAKER, ADJUSTING_FOR_NOISE_MESSAGE
+            )
+        )
+
+        mic_audio_source = self.mic_record_audio.source
+        speaker_audio_source = self.speaker_record_audio.source
+
+        self.transcriber = GroqTranscriber(groq_client, TRANSCRIPTION_MODEL)
+        self.mic_transcriber = SourceTranscriber(
+            self.transcriber,
+            mic_audio_source.SAMPLE_RATE,
+            mic_audio_source.SAMPLE_WIDTH,
+            mic_audio_source.channels,
+        )
+        self.speaker_transcriber = SourceTranscriber(
+            self.transcriber,
+            speaker_audio_source.SAMPLE_RATE,
+            speaker_audio_source.SAMPLE_WIDTH,
+            speaker_audio_source.channels,
+        )
+
+        self.mic_transcribe_thread = threading.Thread(
+            target=self.mic_transcriber.transcribe_audio_queue,
+            args=(self.mic_audio_queue, self._handle_mic_transcript_update),
+        )
+        self.speaker_transcribe_thread = threading.Thread(
+            target=self.speaker_transcriber.transcribe_audio_queue,
+            args=(self.speaker_audio_queue, self._handle_speaker_transcript_update),
+        )
+
+        self.mic_transcribe_thread.daemon = True
+        self.speaker_transcribe_thread.daemon = True
+
+        self.mic_transcribe_thread.start()
+        self.speaker_transcribe_thread.start()
+
+        self._mic_init_thread.start()
+
     def _on_mic_noise_adjusted(self):
         if self.mic_enabled:
-            self.mic_record_audio.record_into_queue(self.audio_queue)
+            self.mic_record_audio.record_into_queue(self.mic_audio_queue)
 
         try:
             self._adjusting_noise_audio_block.delete_self()
@@ -138,7 +156,7 @@ class TranscriptionPanel(QWidget):
 
     def _on_speaker_noise_adjusted(self):
         if self.speaker_enabled:
-            self.speaker_record_audio.record_into_queue(self.audio_queue)
+            self.speaker_record_audio.record_into_queue(self.speaker_audio_queue)
 
         try:
             self._adjusting_noise_audio_block.delete_self()
@@ -147,46 +165,61 @@ class TranscriptionPanel(QWidget):
 
         self._adjusting_noise_audio_block = None
 
-    @Slot(str, str, bool)
-    def update_transcription(self, source_string: str, text: str, is_new_phrase: bool):
-        source_type = AudioSourceType(source_string)
+    @Slot(str, bool, bool)
+    def update_transcription(self, text: str, is_new_phrase: bool, is_mic: bool):
+        source_type = AudioSourceType.MIC if is_mic else AudioSourceType.SPEAKER
         if is_new_phrase:
             self.transcription_list.add_transcription_block(source_type, text)
             return
 
         self.transcription_list.update_last_block_text(source_type, text)
 
-    def _handle_transcript_update(
-        self, source: AudioSourceType, text: str, is_new_phrase: bool
-    ):
+    def _handle_mic_transcript_update(self, text: str, is_new_phrase: bool):
         QMetaObject.invokeMethod(
             self,
             "update_transcription",
             Qt.QueuedConnection,
-            Q_ARG(str, source.value),
             Q_ARG(str, text),
             Q_ARG(bool, is_new_phrase),
+            Q_ARG(bool, True),
         )
 
+    def _handle_speaker_transcript_update(self, text: str, is_new_phrase: bool):
+        QMetaObject.invokeMethod(
+            self,
+            "update_transcription",
+            Qt.QueuedConnection,
+            Q_ARG(str, text),
+            Q_ARG(bool, is_new_phrase),
+            Q_ARG(bool, False),
+        )
+
+    @staticmethod
     def _change_stream_enabled(
-        self, enabled: bool, stream: MicRecorder | SpeakerRecorder
+        enabled: bool,
+        stream: MicRecorder | SpeakerRecorder,
+        queue: deque[Tuple[datetime, bytes]],
     ):
         if not enabled:
             stream.stop_recording()
             return
 
         if not stream.is_recording():
-            stream.record_into_queue(self.audio_queue)
+            stream.record_into_queue(queue)
 
     def set_mic_enabled(self, enabled: bool):
         if self.mic_enabled != enabled:
             self.mic_enabled = enabled
-            self._change_stream_enabled(enabled, self.mic_record_audio)
+            self._change_stream_enabled(
+                enabled, self.mic_record_audio, self.mic_audio_queue
+            )
 
     def set_speaker_enabled(self, enabled: bool):
         if self.speaker_enabled != enabled:
             self.speaker_enabled = enabled
-            self._change_stream_enabled(enabled, self.speaker_record_audio)
+            self._change_stream_enabled(
+                enabled, self.speaker_record_audio, self.speaker_audio_queue
+            )
 
     def _on_select_clicked(self):
         if self.transcription_list.get_is_all_selected():

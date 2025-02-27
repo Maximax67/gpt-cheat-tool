@@ -15,6 +15,9 @@ class Icon(Enum):
     DELETE = "./assets/icons/trash-2.svg"
     SPEAKER_ON = "./assets/icons/volume-2.svg"
     SPEAKER_OFF = "./assets/icons/volume-x.svg"
+    ARROW_LEFT = "./assets/icons/arrow-left.svg"
+    ARROW_RIGHT = "./assets/icons/arrow-right.svg"
+    SHEVRONS_RIGHT = "./assets/icons/chevrons-right.svg"
 
 
 _cached_icons: Dict[Icon, Tuple[QColor, QIcon]] = {}
