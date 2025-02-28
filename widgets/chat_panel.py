@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
 )
 from PySide6.QtGui import QKeyEvent
-from PySide6.QtCore import QMetaObject, Qt, Q_ARG, Slot, QEvent, QSize
+from PySide6.QtCore import QMetaObject, Qt, Q_ARG, Slot, QEvent
 
 from services.generate_text.ChatController import ChatController
 

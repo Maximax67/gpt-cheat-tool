@@ -14,8 +14,10 @@ class ChatController:
         self,
         text_generator: AbstractTextGenerator,
         system_message: Optional[str] = None,
+        default_message_context: Optional[int] = None,
     ):
         self.text_generator = text_generator
+        self.default_message_context = default_message_context
 
         system_message = ChatMessage(
             0, system_message if system_message else "", ChatMessageRole.SYSTEM, None
@@ -107,10 +109,13 @@ class ChatController:
         message: ChatMessage,
         callback: Callable[[int], None],
         completed_callback: Callable[[int], None],
-        send_n_messages: Optional[int],
+        message_context: Optional[int],
         model: Optional[str],
     ) -> ChatMessage:
-        chat_history = self._form_messages_list(message, send_n_messages)
+        if message_context is None:
+            message_context = self.default_message_context
+
+        chat_history = self._form_messages_list(message, message_context)
         response_message = self._add_message("", ChatMessageRole.ASSISTANT, message)
 
         def internal_callback(text_chunk: str):
@@ -134,11 +139,11 @@ class ChatController:
         callback: Callable[[int], None],
         completed_callback: Callable[[int], None],
         assistant_message_id: Optional[int] = None,
-        send_n_messages: Optional[int] = None,
+        message_context: Optional[int] = None,
         model: Optional[str] = None,
     ) -> Tuple[ChatMessage, ChatMessage]:
-        if send_n_messages and send_n_messages < 1:
-            raise ValueError("send_n_messages should be >= 1")
+        if message_context and message_context < 1:
+            raise ValueError("message_context should be >= 1")
 
         if assistant_message_id:
             assistant_message = self._get_assistant_message_by_id(assistant_message_id)
@@ -147,7 +152,7 @@ class ChatController:
 
         user_message = self._add_message(text, ChatMessageRole.USER, assistant_message)
         response_message = self._generate_response_for_message(
-            user_message, callback, completed_callback, send_n_messages, model
+            user_message, callback, completed_callback, message_context, model
         )
 
         return user_message, response_message
@@ -157,14 +162,14 @@ class ChatController:
         assistant_message_id: int,
         callback: Callable[[int], None],
         completed_callback: Callable[[int], None],
-        send_n_messages: Optional[int] = None,
+        message_context: Optional[int] = None,
         model: Optional[str] = None,
     ) -> ChatMessage:
         if not self.messages:
             raise Exception("No messages to regenerate.")
 
-        if send_n_messages and send_n_messages < 1:
-            raise ValueError("send_n_messages should be >= 1")
+        if message_context and message_context < 1:
+            raise ValueError("message_context should be >= 1")
 
         assistant_message = self._get_assistant_message_by_id(assistant_message_id)
         user_message = assistant_message.parent
@@ -172,7 +177,7 @@ class ChatController:
             raise ValueError("Message does not have a parent user message")
 
         return self._generate_response_for_message(
-            user_message, callback, completed_callback, send_n_messages, model
+            user_message, callback, completed_callback, message_context, model
         )
 
     def change_user_message(
@@ -181,14 +186,14 @@ class ChatController:
         user_message_id: int,
         callback: Callable[[int], None],
         completed_callback: Callable[[int], None],
-        send_n_messages: Optional[int] = None,
+        message_context: Optional[int] = None,
         model: Optional[str] = None,
     ) -> Tuple[ChatMessage, ChatMessage]:
         if not self.messages:
             raise Exception("No messages to change.")
 
-        if send_n_messages and send_n_messages < 1:
-            raise ValueError("send_n_messages should be >= 1")
+        if message_context and message_context < 1:
+            raise ValueError("message_context should be >= 1")
 
         user_message = self._get_user_message_by_id(user_message_id)
         user_message_parent = user_message.parent
@@ -197,7 +202,7 @@ class ChatController:
         )
 
         response_message = self._generate_response_for_message(
-            new_user_message, callback, completed_callback, send_n_messages, model
+            new_user_message, callback, completed_callback, message_context, model
         )
 
         return new_user_message, response_message

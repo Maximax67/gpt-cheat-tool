@@ -7,6 +7,7 @@ from services.generate_text.ChatController import ChatController
 from services.generate_text.TextGenerator import GroqTextGenerator
 from services.groq import groq_client
 
+from settings import AppSettings
 from widgets.chat_panel import ChatPanel
 from widgets.quick_answer_panel import QuickAnswerPanel
 from widgets.transcription_panel import TranscriptionPanel
@@ -16,19 +17,15 @@ from ui.settings_dialog import SettingsDialog
 from ui.themes import Theme, ThemeManager
 
 
-QUICK_ANSWER_MESSAGE_CONTEXT = 5
-QUICK_ANSWER_DEFAULT_PROMPT = "You have a poor transcript of speech below. Provide an answer based on the conversation. Give a straightforward response to help user answer in current situation. Audio recorded from user microphone labeled as [MIC] and audio from user speakers labeled as [SPEAKER]. Imagine that you are the person labeled as [MIC]. DO NOT ask to repeat, and DO NOT ask for clarification. Just direct answer."
-CHAT_DEFAULT_PROMPT = None
-QUICK_ANSWER_MODEL = os.environ.get("QUICK_ANSWER_MODEL")
-
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.theme_manager = ThemeManager(Theme.AUTO)
-        self.settings_dialog = SettingsDialog(parent=self)
-        self.settings_dialog.set_current_theme(Theme.AUTO)
+        self.settings: AppSettings = AppSettings.load()
+        self.theme_manager = ThemeManager(self.settings.theme)
+
+        self.settings_dialog = SettingsDialog(self.settings, parent=self)
+        self.settings_dialog.set_current_theme(self.settings.theme)
         self.settings_dialog.set_theme_signal.connect(self.update_theme)
 
         self._setup_ui()
@@ -46,8 +43,18 @@ class MainWindow(QMainWindow):
         splitter_horizontal = QSplitter(Qt.Horizontal)
         main_layout.addWidget(splitter_horizontal)
 
-        text_generator = GroqTextGenerator(groq_client, QUICK_ANSWER_MODEL)
-        chat_controller = ChatController(text_generator, CHAT_DEFAULT_PROMPT)
+        chat_text_gen = self.settings.chat.text_generator
+        chat_text_generator = GroqTextGenerator(
+            groq_client,
+            chat_text_gen.model,
+            chat_text_gen.temperature,
+            chat_text_gen.max_tokens,
+            chat_text_gen.top_p,
+            chat_text_gen.stream,
+        )
+        chat_controller = ChatController(
+            chat_text_generator, chat_text_gen.prompt, chat_text_gen.message_context
+        )
 
         # Left panel: Chat UI
         self.chat_panel = ChatPanel(chat_controller)
@@ -60,8 +67,19 @@ class MainWindow(QMainWindow):
 
         splitter_vertical = QSplitter(Qt.Vertical)
 
+        qa_text_gen = self.settings.quick_answers.text_generator
+        quick_answer_text_generator = GroqTextGenerator(
+            groq_client,
+            qa_text_gen.model,
+            qa_text_gen.temperature,
+            qa_text_gen.max_tokens,
+            qa_text_gen.top_p,
+            qa_text_gen.stream,
+        )
         self.quick_answer_panel = QuickAnswerPanel(
-            text_generator, QUICK_ANSWER_DEFAULT_PROMPT
+            quick_answer_text_generator,
+            qa_text_gen.prompt,
+            self.settings.quick_answers.default_message,
         )
         self.quick_answer_panel.forward_signal.connect(
             self.forward_transcription_to_chat
@@ -73,7 +91,7 @@ class MainWindow(QMainWindow):
         splitter_vertical.addWidget(self.quick_answer_panel)
 
         self.transcription_controls = ControlsPanel()
-        self.transcription_panel = TranscriptionPanel()
+        self.transcription_panel = TranscriptionPanel(self.settings.transcription)
 
         self.transcription_panel.mic_init_signal.connect(
             self.transcription_controls.on_mic_init
@@ -123,7 +141,9 @@ class MainWindow(QMainWindow):
         self.chat_panel.clear_prompt()
 
     def _handle_request_quick_answer_context(self):
-        context = self.transcription_panel.get_messages(QUICK_ANSWER_MESSAGE_CONTEXT)
+        context = self.transcription_panel.get_messages(
+            self.settings.text_generator.quick_answers.message_context
+        )
         self.quick_answer_panel.generate_quick_answer(context)
 
     def open_settings(self):

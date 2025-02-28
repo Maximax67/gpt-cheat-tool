@@ -10,14 +10,18 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
+from settings import AppSettings
 from ui.themes import Theme
 
 
 class SettingsDialog(QDialog):
     set_theme_signal = Signal(Theme)
 
-    def __init__(self, parent=None):
+    def __init__(self, settigns: AppSettings, parent=None):
         super().__init__(parent)
+
+        self.settings = settigns
+
         self.setWindowTitle("Settings")
         self.setMinimumWidth(400)
 
@@ -74,16 +78,21 @@ class SettingsDialog(QDialog):
         main_layout.addWidget(close_button, alignment=Qt.AlignRight)
 
     def _on_theme_changed(self, theme: str):
-        self.set_theme_signal.emit(Theme(theme.lower()))
+        theme = Theme(theme.lower())
+        self.settings.theme = theme
+        self.set_theme_signal.emit(theme)
+        self.settings.save()
 
     def set_current_theme(self, theme: Theme):
         self.theme_selector.setCurrentText(theme.value.capitalize())
 
     def _on_audio_input_changed(self, device_name: str):
         print("Audio input changed to:", device_name)
+        self.settings.save()
 
     def _on_audio_output_changed(self, device_name: str):
         print("Audio output changed to:", device_name)
+        self.settings.save()
 
     def set_audio_input_devices(self, devices: List[str]):
         self.audio_input_selector.clear()

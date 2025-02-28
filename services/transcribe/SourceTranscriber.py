@@ -7,9 +7,6 @@ from typing import Callable, Optional, Tuple
 from datetime import datetime, timedelta
 from services.transcribe.Transcriber import AbstractTranscriber
 
-PHRASE_TIMEOUT = 5
-MAX_PHRASE_LENGTH = 17
-
 
 class SourceTranscriber:
 
@@ -19,6 +16,8 @@ class SourceTranscriber:
         sample_rate: int,
         sample_width: int,
         channels: int,
+        phrase_timeout: float = 5,
+        max_phrase_length: float = 17,
     ):
         self.transcriber = transcriber
         self.sample_rate = sample_rate
@@ -30,6 +29,8 @@ class SourceTranscriber:
         self.new_phrase = True
         self.is_transcribing = False
         self.queue: deque[Tuple[datetime, bytes]] = deque()
+        self.phrase_timeout = phrase_timeout
+        self.max_phrase_length = max_phrase_length
 
     def transcribe_audio_queue(
         self,
@@ -86,10 +87,10 @@ class SourceTranscriber:
         if self.last_spoken is None or self.first_spoken is None:
             return False
 
-        if time_spoken - self.last_spoken > timedelta(seconds=PHRASE_TIMEOUT):
+        if time_spoken - self.last_spoken > timedelta(seconds=self.phrase_timeout):
             return False
 
-        if time_spoken - self.first_spoken > timedelta(seconds=MAX_PHRASE_LENGTH):
+        if time_spoken - self.first_spoken > timedelta(seconds=self.max_phrase_length):
             return False
 
         return True

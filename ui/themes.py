@@ -14,7 +14,7 @@ class Theme(Enum):
 class ThemeManager:
     def __init__(self, theme: Theme):
         self._theme = theme
-        self.set_theme(theme)
+        qdarktheme.setup_theme(theme.value)
 
     def set_theme(self, theme: Theme) -> bool:
         if self._theme != theme:

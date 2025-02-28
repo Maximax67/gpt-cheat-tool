@@ -28,7 +28,7 @@ class GroqTextGenerator(AbstractTextGenerator):
         default_model: str,
         temperature=0.5,
         max_tokens=1024,
-        top_p=1,
+        top_p=1.0,
         stream=True,
     ):
         self.client = client

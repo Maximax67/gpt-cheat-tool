@@ -1,4 +1,3 @@
-import os
 import threading
 
 from collections import deque
@@ -18,21 +17,37 @@ from services.record_audio.AudioRecorder import (
 from services.transcribe.Transcriber import GroqTranscriber
 from services.groq import groq_client
 
+from settings import TranscriptionSettings
 from widgets.transcription_list import SelectionStates, TranscriptionListWidget
 from ui.icons import Icon, get_icon
-
-TRANSCRIPTION_MODEL = os.environ.get("TRANSCRIPTION_MODEL")
-INIT_MESSAGE = "[ Initializing ]"
-ADJUSTING_FOR_NOISE_MESSAGE = "[ Adjusting for ambient noise ]"
 
 
 class MicInitTask(QThread):
     initialized = Signal(MicRecorder)
     error = Signal(str)
 
+    def __init__(
+        self,
+        device_index=None,
+        record_timeout=4.0,
+        energy_threshold=1000.0,
+        dynamic_energy_threshold=False,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.device_index = device_index
+        self.record_timeout = record_timeout
+        self.energy_threshold = energy_threshold
+        self.dynamic_energy_threshold = dynamic_energy_threshold
+
     def run(self):
         try:
-            mic = MicRecorder()
+            mic = MicRecorder(
+                self.device_index,
+                self.record_timeout,
+                self.energy_threshold,
+                self.dynamic_energy_threshold,
+            )
             self.initialized.emit(mic)
         except Exception as e:
             print(e)
@@ -43,9 +58,28 @@ class SpeakerInitTask(QThread):
     initialized = Signal(SpeakerRecorder)
     error = Signal(str)
 
+    def __init__(
+        self,
+        device_index=None,
+        record_timeout=4.0,
+        energy_threshold=1000.0,
+        dynamic_energy_threshold=False,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.device_index = device_index
+        self.record_timeout = record_timeout
+        self.energy_threshold = energy_threshold
+        self.dynamic_energy_threshold = dynamic_energy_threshold
+
     def run(self):
         try:
-            speaker = SpeakerRecorder()
+            speaker = SpeakerRecorder(
+                self.device_index,
+                self.record_timeout,
+                self.energy_threshold,
+                self.dynamic_energy_threshold,
+            )
             self.initialized.emit(speaker)
         except Exception as e:
             print(e)
@@ -77,8 +111,11 @@ class TranscriptionPanel(QWidget):
     mic_recorder_error = Signal()
     speaker_recorder_error = Signal()
 
-    def __init__(self):
+    def __init__(self, settings: TranscriptionSettings):
         super().__init__()
+
+        self.settings = settings
+
         self._setup_ui()
         self.update_theme_ui()
 
@@ -136,7 +173,12 @@ class TranscriptionPanel(QWidget):
     def setup_audio_transcription(self):
         self.mic_audio_queue: deque[Tuple[datetime, bytes]] = deque()
         self.speaker_audio_queue: deque[Tuple[datetime, bytes]] = deque()
-        self.transcriber = GroqTranscriber(groq_client, TRANSCRIPTION_MODEL)
+
+        self.mic_transcriber = GroqTranscriber(groq_client, self.settings.mic.model)
+        self.speaker_transcriber = GroqTranscriber(
+            groq_client, self.settings.speaker.model
+        )
+
         self._init_mic_recorder()
 
     def _update_mic_transcription_message(self, message: str):
@@ -161,7 +203,9 @@ class TranscriptionPanel(QWidget):
 
     def _on_mic_recorder_error(self, error: str):
         self.mic_recorder_error.emit()
-        self._update_mic_transcription_message("Mic init error: " + error)
+        self._update_mic_transcription_message(
+            self.settings.mic.messages.init_error.format(error)
+        )
 
         if self.is_first_init_attempt:
             self.is_first_init_attempt = False
@@ -169,15 +213,24 @@ class TranscriptionPanel(QWidget):
 
     def _on_speaker_recorder_error(self, error: str):
         self.speaker_recorder_error.emit()
-        self._update_speaker_transcription_message("Speaker init error: " + error)
+        self._update_speaker_transcription_message(
+            self.settings.speaker.messages.init_error.format(error)
+        )
 
         if self.is_first_init_attempt:
             self.is_first_init_attempt = False
 
     def _init_mic_recorder(self, is_retry: bool = False):
-        self._update_mic_transcription_message(INIT_MESSAGE)
+        mic_settings = self.settings.mic
 
-        self.mic_init_thread = MicInitTask()
+        self._update_mic_transcription_message(mic_settings.messages.init_message)
+
+        self.mic_init_thread = MicInitTask(
+            mic_settings.device_index,
+            mic_settings.record_timeout,
+            mic_settings.energy_threshold,
+            mic_settings.dynamic_energy_threshold,
+        )
         self.mic_init_thread.initialized.connect(self._on_mic_recorder_initialized)
         self.mic_init_thread.error.connect(self._on_mic_recorder_error)
 
@@ -187,14 +240,18 @@ class TranscriptionPanel(QWidget):
             self.mic_init_thread.start()
 
     def _on_mic_recorder_initialized(self, mic_recorder: MicRecorder):
-        self._update_mic_transcription_message(ADJUSTING_FOR_NOISE_MESSAGE)
+        self._update_mic_transcription_message(
+            self.settings.mic.messages.adjust_noise_message
+        )
 
         self.mic_record_audio = mic_recorder
         self.mic_transcriber = SourceTranscriber(
-            self.transcriber,
+            self.mic_transcriber,
             mic_recorder.source.SAMPLE_RATE,
             mic_recorder.source.SAMPLE_WIDTH,
             mic_recorder.source.channels,
+            self.settings.mic.phrase_timeout,
+            self.settings.mic.max_phrase_length,
         )
 
         self._mic_adjuct_noise_thread = AdjustForNoiseTask(self.mic_record_audio)
@@ -228,9 +285,16 @@ class TranscriptionPanel(QWidget):
             QTimer.singleShot(1000, self._init_speaker_recorder)
 
     def _init_speaker_recorder(self, is_retry: bool = False):
-        self._update_speaker_transcription_message(INIT_MESSAGE)
+        speaker_settings = self.settings.speaker
 
-        self.speaker_init_thread = SpeakerInitTask()
+        self._update_speaker_transcription_message(speaker_settings.messages.init_message)
+
+        self.speaker_init_thread = SpeakerInitTask(
+            speaker_settings.device_index,
+            speaker_settings.record_timeout,
+            speaker_settings.energy_threshold,
+            speaker_settings.dynamic_energy_threshold,
+        )
         self.speaker_init_thread.initialized.connect(
             self._on_speaker_recorder_initialized
         )
@@ -242,14 +306,18 @@ class TranscriptionPanel(QWidget):
             self.speaker_init_thread.start()
 
     def _on_speaker_recorder_initialized(self, speaker_recorder: SpeakerRecorder):
-        self._update_speaker_transcription_message(ADJUSTING_FOR_NOISE_MESSAGE)
+        self._update_speaker_transcription_message(
+            self.settings.speaker.messages.adjust_noise_message
+        )
 
         self.speaker_record_audio = speaker_recorder
         self.speaker_transcriber = SourceTranscriber(
-            self.transcriber,
+            self.speaker_transcriber,
             speaker_recorder.source.SAMPLE_RATE,
             speaker_recorder.source.SAMPLE_WIDTH,
             speaker_recorder.source.channels,
+            self.settings.speaker.phrase_timeout,
+            self.settings.speaker.max_phrase_length,
         )
 
         self._speaker_adjuct_noise_thread = AdjustForNoiseTask(

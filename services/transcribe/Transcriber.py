@@ -1,4 +1,3 @@
-import lorem
 from io import BytesIO
 from abc import ABC, abstractmethod
 

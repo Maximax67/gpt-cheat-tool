@@ -1,0 +1,56 @@
+{
+    "chat": {
+        "text_generator": {
+            "prompt": null,
+            "message_context": 5,
+            "model": "deepseek-r1-distill-llama-70b",
+            "temperature": 0.5,
+            "max_tokens": 1024,
+            "top_p": 1.0,
+            "stream": true
+        }
+    },
+    "quick_answers": {
+        "default_message": "Welcome to ChatGPT cheat tool!",
+        "text_generator": {
+            "prompt": null,
+            "message_context": 5,
+            "model": "deepseek-r1-distill-llama-70b",
+            "temperature": 0.5,
+            "max_tokens": 1024,
+            "top_p": 1.0,
+            "stream": true
+        }
+    },
+    "transcription": {
+        "speaker": {
+            "device_index": null,
+            "model": "whisper-large-v3-turbo",
+            "phrase_timeout": 5.0,
+            "max_phrase_length": 17.0,
+            "record_timeout": 4.0,
+            "energy_threshold": 1000.0,
+            "dynamic_energy_threshold": false,
+            "messages": {
+                "init_message": "[ Initializing ]",
+                "adjust_noise_message": "[ Adjusting for ambient noise ]",
+                "init_error": "Recorder init error: {}"
+            }
+        },
+        "mic": {
+            "device_index": null,
+            "model": "whisper-large-v3-turbo",
+            "phrase_timeout": 5.0,
+            "max_phrase_length": 17.0,
+            "record_timeout": 4.0,
+            "energy_threshold": 1000.0,
+            "dynamic_energy_threshold": false,
+            "messages": {
+                "init_message": "[ Initializing ]",
+                "adjust_noise_message": "[ Adjusting for ambient noise ]",
+                "init_error": "Recorder init error: {}"
+            }
+        }
+    },
+    "theme": "light"
+}
