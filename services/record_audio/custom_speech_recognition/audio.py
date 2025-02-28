@@ -46,15 +46,11 @@ class AudioData(object):
         if start_ms is None:
             start_byte = 0
         else:
-            start_byte = int(
-                (start_ms * self.sample_rate * self.sample_width) // 1000
-            )
+            start_byte = int((start_ms * self.sample_rate * self.sample_width) // 1000)
         if end_ms is None:
             end_byte = len(self.frame_data)
         else:
-            end_byte = int(
-                (end_ms * self.sample_rate * self.sample_width) // 1000
-            )
+            end_byte = int((end_ms * self.sample_rate * self.sample_width) // 1000)
         return AudioData(
             self.frame_data[start_byte:end_byte],
             self.sample_rate,
@@ -113,17 +109,14 @@ class AudioData(object):
                     audioop.error
                 ):  # this version of audioop doesn't support 24-bit audio (probably Python 3.3 or less)
                     raw_data = b"".join(
-                        raw_data[i + 1 : i + 4]
-                        for i in range(0, len(raw_data), 4)
+                        raw_data[i + 1 : i + 4] for i in range(0, len(raw_data), 4)
                     )  # since we're in little endian, we discard the first byte from each 32-bit sample to get a 24-bit sample
                 else:  # 24-bit audio fully supported, we don't need to shim anything
                     raw_data = audioop.lin2lin(
                         raw_data, self.sample_width, convert_width
                     )
             else:
-                raw_data = audioop.lin2lin(
-                    raw_data, self.sample_width, convert_width
-                )
+                raw_data = audioop.lin2lin(raw_data, self.sample_width, convert_width)
 
         # if the output is 8-bit audio with unsigned samples, convert the samples we've been treating as signed to unsigned again
         if convert_width == 1:
@@ -133,7 +126,7 @@ class AudioData(object):
 
         return raw_data
 
-    def get_wav_data(self, convert_rate=None, convert_width=None, nchannels = 1):
+    def get_wav_data(self, convert_rate=None, convert_width=None, nchannels=1):
         """
         Returns a byte string representing the contents of a WAV file containing the audio represented by the ``AudioData`` instance.
 
@@ -144,12 +137,8 @@ class AudioData(object):
         Writing these bytes directly to a file results in a valid `WAV file <https://en.wikipedia.org/wiki/WAV>`__.
         """
         raw_data = self.get_raw_data(convert_rate, convert_width)
-        sample_rate = (
-            self.sample_rate if convert_rate is None else convert_rate
-        )
-        sample_width = (
-            self.sample_width if convert_width is None else convert_width
-        )
+        sample_rate = self.sample_rate if convert_rate is None else convert_rate
+        sample_width = self.sample_width if convert_width is None else convert_width
 
         # generate the WAV file contents
         with io.BytesIO() as wav_file:
@@ -175,12 +164,8 @@ class AudioData(object):
         Writing these bytes directly to a file results in a valid `AIFF-C file <https://en.wikipedia.org/wiki/Audio_Interchange_File_Format>`__.
         """
         raw_data = self.get_raw_data(convert_rate, convert_width)
-        sample_rate = (
-            self.sample_rate if convert_rate is None else convert_rate
-        )
-        sample_width = (
-            self.sample_width if convert_width is None else convert_width
-        )
+        sample_rate = self.sample_rate if convert_rate is None else convert_rate
+        sample_width = self.sample_width if convert_width is None else convert_width
 
         # the AIFF format is big-endian, so we need to convert the little-endian raw data to big-endian
         if hasattr(

@@ -6,16 +6,15 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QPushButton,
     QLabel,
-    QMenu,
     QApplication,
     QSizePolicy,
     QPlainTextEdit,
 )
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QPalette, QColor
 
 from services.generate_text.Message import ChatMessage, ChatMessageRole
 from ui.icons import Icon, get_icon
+from ui.themes import ThemeManager
 
 
 class ChatMessageWidget(QWidget):
@@ -80,12 +79,13 @@ class ChatMessageWidget(QWidget):
             self.back_button.setFixedHeight(20)
             self.back_button.setIconSize(QSize(12, 12))
             self.back_button.setEnabled(current_pos > 1)
+            self.back_button.setToolTip("Previous message")
             self.back_button.clicked.connect(self._on_previous_message)
             self.control_layout.addWidget(self.back_button)
 
             # Current position / Total messages (e.g., 2/4)
             self.position_label = QLabel(f"{current_pos} / {total_siblings_count}")
-            self.position_label.setFixedWidth(35)
+            self.position_label.setFixedWidth(40)
             self.position_label.setFixedHeight(20)
             self.position_label.setAlignment(Qt.AlignCenter)
             self.control_layout.addWidget(self.position_label)
@@ -95,6 +95,7 @@ class ChatMessageWidget(QWidget):
             self.next_button.setFixedWidth(20)
             self.next_button.setFixedHeight(20)
             self.next_button.setIconSize(QSize(12, 12))
+            self.next_button.setToolTip("Next message")
             self.next_button.setEnabled(current_pos < total_siblings_count)
             self.next_button.clicked.connect(self._on_next_message)
             self.control_layout.addWidget(self.next_button)
@@ -107,6 +108,7 @@ class ChatMessageWidget(QWidget):
         self.copy_button.setFixedWidth(20)
         self.copy_button.setFixedHeight(20)
         self.copy_button.setIconSize(QSize(12, 12))
+        self.copy_button.setToolTip("Copy")
         self.copy_button.clicked.connect(self.copy_text)
         self.control_layout.addWidget(self.copy_button)
 
@@ -116,6 +118,7 @@ class ChatMessageWidget(QWidget):
             self.edit_button.setFixedWidth(20)
             self.edit_button.setFixedHeight(20)
             self.edit_button.setIconSize(QSize(12, 12))
+            self.edit_button.setToolTip("Edit")
             self.edit_button.clicked.connect(self._on_edit_message)
             self.control_layout.addWidget(self.edit_button)
             self.regenerate_button = None
@@ -124,6 +127,7 @@ class ChatMessageWidget(QWidget):
             self.regenerate_button.setFixedWidth(20)
             self.regenerate_button.setFixedHeight(20)
             self.regenerate_button.setIconSize(QSize(12, 12))
+            self.regenerate_button.setToolTip("Regenerate")
             self.regenerate_button.clicked.connect(self._handle_regenerate)
             self.control_layout.addWidget(self.regenerate_button)
             self.edit_button = None
@@ -142,6 +146,7 @@ class ChatMessageWidget(QWidget):
                 widget.hide()
 
         self.text_edit = QPlainTextEdit()
+        self.text_edit.setPlaceholderText("Enter new message text")
         self.text_edit.setPlainText(self._original_text)
         self.main_layout.insertWidget(0, self.text_edit)
 
@@ -229,33 +234,16 @@ class ChatMessageWidget(QWidget):
 
         self.label.setText(text_to_set)
 
-    def show_context_menu(self, position):
-        menu = QMenu(self)
-        copy_action = menu.addAction(get_icon(Icon.COPY), "Copy")
-        delete_action = menu.addAction(get_icon(Icon.DELETE), "Delete")
-
-        action = menu.exec(position)
-        if action == copy_action:
-            self.copy_text()
-        elif action == delete_action:
-            self.delete_self()
-
     def _update_label_background(self):
-        app = QApplication.instance()
-        palette: QPalette = app.palette()
-        color: QColor = palette.color(QPalette.ColorRole.Text)
-
-        # Converting the RGB color values to compute luminance by the following formula:
-        # Y = 0.2126 * R + 0.7152 * G + 0.0722 * B
-        y = 0.2126 * color.red() + 0.7152 * color.green() + 0.0722 * color.blue()
+        is_white_theme = ThemeManager.is_white_theme()
 
         if self.message.error:
             self.label.setStyleSheet(
-                f"background: {'#FEC9C8' if y < 128 else '#8B0000'};"
+                f"background: {'#FEC9C8' if is_white_theme else '#8B0000'};"
             )
         elif self.message.role == ChatMessageRole.USER:
             self.label.setStyleSheet(
-                f"background: {'#E8E8E8' if y < 128 else '#2E2E2E'};"
+                f"background: {'#E8E8E8' if is_white_theme else '#2E2E2E'};"
             )
 
     def update_theme_ui(self):

@@ -71,32 +71,47 @@ class MainWindow(QMainWindow):
 
         splitter_vertical.addWidget(self.quick_answer_panel)
 
+        self.transcription_controls = ControlsPanel()
         self.transcription_panel = TranscriptionPanel()
+
+        self.transcription_panel.mic_init_signal.connect(
+            self.transcription_controls.on_mic_init
+        )
+        self.transcription_panel.speaker_init_signal.connect(
+            self.transcription_controls.on_speaker_init
+        )
+        self.transcription_panel.mic_recorder_error.connect(
+            self.transcription_controls.on_mic_error
+        )
+        self.transcription_panel.speaker_recorder_error.connect(
+            self.transcription_controls.on_speaker_error
+        )
         self.transcription_panel.forward_signal.connect(
             self.forward_transcription_to_chat
         )
 
-        splitter_vertical.addWidget(self.transcription_panel)
-
-        right_panel_layout.addWidget(splitter_vertical)
-
-        self.transcription_controls = ControlsPanel()
         self.transcription_controls.mic_toggled.connect(
             self.transcription_panel.set_mic_enabled
         )
         self.transcription_controls.speaker_toggled.connect(
             self.transcription_panel.set_speaker_enabled
         )
-        self.transcription_controls.settings_clicked.connect(self.open_settings)
+        self.transcription_controls.open_settings_signal.connect(self.open_settings)
+        self.transcription_controls.retry_mic_init.connect(
+            self.transcription_panel.retry_mic_init
+        )
+        self.transcription_controls.retry_speaker_init.connect(
+            self.transcription_panel.retry_speaker_init
+        )
 
+        self.transcription_panel.setup_audio_transcription()
+
+        splitter_vertical.addWidget(self.transcription_panel)
+        right_panel_layout.addWidget(splitter_vertical)
         right_panel_layout.addWidget(self.transcription_controls)
         splitter_horizontal.addWidget(right_panel)
 
     def forward_transcription_to_chat(self, text):
-        """
-        When transcription blocks are forwarded, if the chat prompt field is nonempty,
-        prepend its text to the transcription text.
-        """
         prompt_text = self.chat_panel.get_prompt_text()
         if prompt_text:
             full_text = prompt_text + "\n" + text

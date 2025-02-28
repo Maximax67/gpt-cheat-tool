@@ -11,12 +11,6 @@ class AbstractTranscriber(ABC):
         raise NotImplementedError("This is an abstract class")
 
 
-class TestTranscriber(AbstractTranscriber):
-
-    def get_transcription(self, buffer: BytesIO, file_extension: str) -> str:
-        return lorem.sentence()
-
-
 class GroqTranscriber(AbstractTranscriber):
 
     def __init__(self, client: Groq, model: str):

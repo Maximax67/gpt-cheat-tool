@@ -28,18 +28,23 @@ class SourceTranscriber:
         self.first_spoken: Optional[datetime] = None
         self.last_spoken: Optional[datetime] = None
         self.new_phrase = True
+        self.is_transcribing = False
+        self.queue: deque[Tuple[datetime, bytes]] = deque()
 
     def transcribe_audio_queue(
         self,
         audio_queue: deque[Tuple[datetime, bytes]],
         callback: Callable[[str, bool], None],
     ):
-        while True:
-            if not len(audio_queue):
+        self.queue = audio_queue
+        self.is_transcribing = True
+
+        while self.is_transcribing:
+            if not len(self.queue):
                 time.sleep(0.01)
                 continue
 
-            data, time_spoken = audio_queue.popleft()
+            data, time_spoken = self.queue.popleft()
 
             if self._is_same_phrase(time_spoken):
                 self._continue_phrase(data, time_spoken)
@@ -47,9 +52,9 @@ class SourceTranscriber:
                 self._start_new_phrase(data, time_spoken)
 
             # Now, check if there are additional items for the same source that are still part of the same phrase.
-            while len(audio_queue):
+            while len(self.queue):
                 try:
-                    next_item = audio_queue.popleft()
+                    next_item = self.queue.popleft()
                 except Exception:
                     break
 
@@ -61,7 +66,7 @@ class SourceTranscriber:
                     self._continue_phrase(next_data, next_time_spoken)
                 else:
                     # New phrase detected – put the item back for later and stop accumulating.
-                    audio_queue.appendleft(next_item)
+                    self.queue.appendleft(next_item)
                     break
 
             # Now process the accumulated data for the current phrase.
@@ -111,3 +116,7 @@ class SourceTranscriber:
         wav_buffer.seek(0)
 
         return wav_buffer
+
+    def stop(self):
+        self.is_transcribing = False
+        self.queue.clear()

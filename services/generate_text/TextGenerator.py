@@ -1,5 +1,3 @@
-import lorem
-from random import randint
 from abc import ABC, abstractmethod
 from groq import Groq
 from typing import Optional, TypedDict, Callable, List
@@ -20,28 +18,6 @@ class AbstractTextGenerator(ABC):
         model: Optional[str] = None,
     ) -> None:
         raise NotImplementedError("this is an abstract class")
-
-
-class MockTextGenerator(AbstractTextGenerator):
-
-    def generate_text(
-        self,
-        chat_history: List[ChatMessageDict],
-        callback: Callable[[str], None],
-        completed_callback: Callable[[Optional[Exception]], None],
-        model: Optional[str] = None,
-    ) -> None:
-        try:
-            text = lorem.sentence()
-            callback(text)
-
-            for _ in range(randint(0, 15)):
-                text = " " + lorem.sentence()
-                callback(text)
-        except Exception as e:
-            completed_callback(e)
-        else:
-            completed_callback(None)
 
 
 class GroqTextGenerator(AbstractTextGenerator):

@@ -22,42 +22,79 @@ from widgets.transcription_list import SelectionStates, TranscriptionListWidget
 from ui.icons import Icon, get_icon
 
 TRANSCRIPTION_MODEL = os.environ.get("TRANSCRIPTION_MODEL")
+INIT_MESSAGE = "[ Initializing ]"
 ADJUSTING_FOR_NOISE_MESSAGE = "[ Adjusting for ambient noise ]"
 
 
-class RecorderInitTask(QThread):
-    initialized = Signal(object, object)
+class MicInitTask(QThread):
+    initialized = Signal(MicRecorder)
     error = Signal(str)
 
     def run(self):
         try:
             mic = MicRecorder()
-            speaker = SpeakerRecorder()
-            self.initialized.emit(mic, speaker)
+            self.initialized.emit(mic)
         except Exception as e:
+            print(e)
+            self.error.emit(str(e))
+
+
+class SpeakerInitTask(QThread):
+    initialized = Signal(SpeakerRecorder)
+    error = Signal(str)
+
+    def run(self):
+        try:
+            speaker = SpeakerRecorder()
+            self.initialized.emit(speaker)
+        except Exception as e:
+            print(e)
             self.error.emit(str(e))
 
 
 class AdjustForNoiseTask(QThread):
     noise_adjusted = Signal()
+    error = Signal(str)
 
     def __init__(self, recorder: BaseRecorder):
         super().__init__()
         self.recorder = recorder
 
     def run(self):
-        self.recorder.adjust_for_noise()
-        self.noise_adjusted.emit()
+        try:
+            self.recorder.adjust_for_noise()
+            self.noise_adjusted.emit()
+        except Exception as e:
+            self.error.emit(str(e))
 
 
 class TranscriptionPanel(QWidget):
     forward_signal = Signal(str)
 
+    mic_init_signal = Signal()
+    speaker_init_signal = Signal()
+
+    mic_recorder_error = Signal()
+    speaker_recorder_error = Signal()
+
     def __init__(self):
         super().__init__()
         self._setup_ui()
         self.update_theme_ui()
-        self._setup_audio_transcription()
+
+        self.mic_enabled = False
+        self.speaker_enabled = False
+
+        self.is_first_init_attempt = True
+
+        self.is_mic_init = False
+        self.is_speaker_init = False
+
+        self._mic_init_audio_block = None
+        self._speaker_init_audio_block = None
+
+        self.mic_transcribe_thread = None
+        self.speaker_transcribe_thread = None
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -96,102 +133,167 @@ class TranscriptionPanel(QWidget):
 
         main_layout.addLayout(button_layout)
 
-    def _setup_audio_transcription(self):
-        self.mic_enabled = True
-        self.speaker_enabled = True
-
-        self.recorder_init_thread = RecorderInitTask()
-        self.recorder_init_thread.initialized.connect(self._on_recorders_initialized)
-        self.recorder_init_thread.error.connect(self._on_recorder_error)
-        self.recorder_init_thread.start()
-
-    def _on_recorders_initialized(
-        self, mic_recorder: MicRecorder, speaker_recorder: SpeakerRecorder
-    ):
-        self.mic_record_audio = mic_recorder
-        self.speaker_record_audio = speaker_recorder
-
+    def setup_audio_transcription(self):
         self.mic_audio_queue: deque[Tuple[datetime, bytes]] = deque()
         self.speaker_audio_queue: deque[Tuple[datetime, bytes]] = deque()
-
-        self._mic_init_thread = AdjustForNoiseTask(self.mic_record_audio)
-        self._speaker_init_thread = AdjustForNoiseTask(self.speaker_record_audio)
-
-        self._mic_init_thread.noise_adjusted.connect(self._on_mic_noise_adjusted)
-        self._speaker_init_thread.noise_adjusted.connect(
-            self._on_speaker_noise_adjusted
-        )
-
-        self._adjusting_noise_audio_block = (
-            self.transcription_list.add_transcription_block(
-                AudioSourceType.SPEAKER, ADJUSTING_FOR_NOISE_MESSAGE
-            )
-        )
-
-        mic_audio_source = self.mic_record_audio.source
-        speaker_audio_source = self.speaker_record_audio.source
-
         self.transcriber = GroqTranscriber(groq_client, TRANSCRIPTION_MODEL)
+        self._init_mic_recorder()
+
+    def _update_mic_transcription_message(self, message: str):
+        if self._mic_init_audio_block:
+            self._mic_init_audio_block.set_text(message)
+        else:
+            self._mic_init_audio_block = (
+                self.transcription_list.add_transcription_block(
+                    AudioSourceType.MIC, message
+                )
+            )
+
+    def _update_speaker_transcription_message(self, message: str):
+        if self._speaker_init_audio_block:
+            self._speaker_init_audio_block.set_text(message)
+        else:
+            self._speaker_init_audio_block = (
+                self.transcription_list.add_transcription_block(
+                    AudioSourceType.SPEAKER, message
+                )
+            )
+
+    def _on_mic_recorder_error(self, error: str):
+        self.mic_recorder_error.emit()
+        self._update_mic_transcription_message("Mic init error: " + error)
+
+        if self.is_first_init_attempt:
+            self.is_first_init_attempt = False
+            self._init_speaker_recorder()
+
+    def _on_speaker_recorder_error(self, error: str):
+        self.speaker_recorder_error.emit()
+        self._update_speaker_transcription_message("Speaker init error: " + error)
+
+        if self.is_first_init_attempt:
+            self.is_first_init_attempt = False
+
+    def _init_mic_recorder(self, is_retry: bool = False):
+        self._update_mic_transcription_message(INIT_MESSAGE)
+
+        self.mic_init_thread = MicInitTask()
+        self.mic_init_thread.initialized.connect(self._on_mic_recorder_initialized)
+        self.mic_init_thread.error.connect(self._on_mic_recorder_error)
+
+        if is_retry:
+            QTimer.singleShot(100, self.mic_init_thread.start)
+        else:
+            self.mic_init_thread.start()
+
+    def _on_mic_recorder_initialized(self, mic_recorder: MicRecorder):
+        self._update_mic_transcription_message(ADJUSTING_FOR_NOISE_MESSAGE)
+
+        self.mic_record_audio = mic_recorder
         self.mic_transcriber = SourceTranscriber(
             self.transcriber,
-            mic_audio_source.SAMPLE_RATE,
-            mic_audio_source.SAMPLE_WIDTH,
-            mic_audio_source.channels,
-        )
-        self.speaker_transcriber = SourceTranscriber(
-            self.transcriber,
-            speaker_audio_source.SAMPLE_RATE,
-            speaker_audio_source.SAMPLE_WIDTH,
-            speaker_audio_source.channels,
+            mic_recorder.source.SAMPLE_RATE,
+            mic_recorder.source.SAMPLE_WIDTH,
+            mic_recorder.source.channels,
         )
 
-        self.mic_transcribe_thread = threading.Thread(
-            target=self.mic_transcriber.transcribe_audio_queue,
-            args=(self.mic_audio_queue, self._handle_mic_transcript_update),
+        self._mic_adjuct_noise_thread = AdjustForNoiseTask(self.mic_record_audio)
+        self._mic_adjuct_noise_thread.noise_adjusted.connect(
+            self._on_mic_noise_adjusted
         )
-        self.speaker_transcribe_thread = threading.Thread(
-            target=self.speaker_transcriber.transcribe_audio_queue,
-            args=(self.speaker_audio_queue, self._handle_speaker_transcript_update),
-        )
-
-        self.mic_transcribe_thread.daemon = True
-        self.speaker_transcribe_thread.daemon = True
-
-        self.mic_transcribe_thread.start()
-        self.speaker_transcribe_thread.start()
-
-        self._mic_init_thread.start()
-
-    def _on_recorder_error(self, error_message: str):
-        print(f"Error initializing recorders: {error_message}")
+        self._mic_adjuct_noise_thread.start()
 
     def _on_mic_noise_adjusted(self):
         if self.mic_enabled:
             self.mic_record_audio.record_into_queue(self.mic_audio_queue)
 
-        try:
-            self._adjusting_noise_audio_block.delete_self()
-        except RuntimeError:
-            pass
+        if self._mic_init_audio_block:
+            try:
+                self._mic_init_audio_block.delete_self()
+            except RuntimeError:
+                pass
 
-        self._adjusting_noise_audio_block = (
-            self.transcription_list.add_transcription_block(
-                AudioSourceType.SPEAKER, ADJUSTING_FOR_NOISE_MESSAGE
-            )
+            self._mic_init_audio_block = None
+
+        self.mic_transcribe_thread = threading.Thread(
+            target=self.mic_transcriber.transcribe_audio_queue,
+            args=(self.mic_audio_queue, self._handle_mic_transcript_update),
+        )
+        self.mic_transcribe_thread.daemon = True
+        self.mic_transcribe_thread.start()
+        self.mic_init_signal.emit()
+        self.is_mic_init = True
+
+        if self.is_first_init_attempt:
+            QTimer.singleShot(1000, self._init_speaker_recorder)
+
+    def _init_speaker_recorder(self, is_retry: bool = False):
+        self._update_speaker_transcription_message(INIT_MESSAGE)
+
+        self.speaker_init_thread = SpeakerInitTask()
+        self.speaker_init_thread.initialized.connect(
+            self._on_speaker_recorder_initialized
+        )
+        self.speaker_init_thread.error.connect(self._on_speaker_recorder_error)
+
+        if is_retry:
+            QTimer.singleShot(100, self.speaker_init_thread.start)
+        else:
+            self.speaker_init_thread.start()
+
+    def _on_speaker_recorder_initialized(self, speaker_recorder: SpeakerRecorder):
+        self._update_speaker_transcription_message(ADJUSTING_FOR_NOISE_MESSAGE)
+
+        self.speaker_record_audio = speaker_recorder
+        self.speaker_transcriber = SourceTranscriber(
+            self.transcriber,
+            speaker_recorder.source.SAMPLE_RATE,
+            speaker_recorder.source.SAMPLE_WIDTH,
+            speaker_recorder.source.channels,
         )
 
-        QTimer.singleShot(1000, self._speaker_init_thread.start)
+        self._speaker_adjuct_noise_thread = AdjustForNoiseTask(
+            self.speaker_record_audio
+        )
+        self._speaker_adjuct_noise_thread.noise_adjusted.connect(
+            self._on_speaker_noise_adjusted
+        )
+        self._speaker_adjuct_noise_thread.start()
 
     def _on_speaker_noise_adjusted(self):
         if self.speaker_enabled:
             self.speaker_record_audio.record_into_queue(self.speaker_audio_queue)
 
-        try:
-            self._adjusting_noise_audio_block.delete_self()
-        except RuntimeError:
-            pass
+        if self._speaker_init_audio_block:
+            try:
+                self._speaker_init_audio_block.delete_self()
+            except RuntimeError:
+                pass
 
-        self._adjusting_noise_audio_block = None
+            self._speaker_init_audio_block = None
+
+        self.speaker_transcribe_thread = threading.Thread(
+            target=self.speaker_transcriber.transcribe_audio_queue,
+            args=(self.speaker_audio_queue, self._handle_speaker_transcript_update),
+        )
+        self.speaker_transcribe_thread.daemon = True
+        self.speaker_transcribe_thread.start()
+        self.speaker_init_signal.emit()
+        self.is_speaker_init = True
+
+    def retry_mic_init(self):
+        self.is_mic_init = False
+        if self.mic_transcribe_thread:
+            self.mic_transcriber.stop()
+
+        self._init_mic_recorder(True)
+
+    def retry_speaker_init(self):
+        self.is_speaker_init = False
+        if self.speaker_transcribe_thread:
+            self.speaker_transcriber.stop()
+
+        self._init_speaker_recorder(True)
 
     @Slot(str, bool, bool)
     def update_transcription(self, text: str, is_new_phrase: bool, is_mic: bool):

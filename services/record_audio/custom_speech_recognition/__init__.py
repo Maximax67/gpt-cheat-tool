@@ -57,29 +57,58 @@ class Microphone(AudioSource):
 
     Higher ``chunk_size`` values help avoid triggering on rapidly changing ambient noise, but also makes detection less sensitive. This value, generally, should be left at its default.
     """
-    def __init__(self, device_index=None, sample_rate=None, chunk_size=1024, speaker=False, channels = 1):
-        assert device_index is None or isinstance(device_index, int), "Device index must be None or an integer"
-        assert sample_rate is None or (isinstance(sample_rate, int) and sample_rate > 0), "Sample rate must be None or a positive integer"
-        assert isinstance(chunk_size, int) and chunk_size > 0, "Chunk size must be a positive integer"
+
+    def __init__(
+        self,
+        device_index=None,
+        sample_rate=None,
+        chunk_size=1024,
+        speaker=False,
+        channels=1,
+    ):
+        assert device_index is None or isinstance(
+            device_index, int
+        ), "Device index must be None or an integer"
+        assert sample_rate is None or (
+            isinstance(sample_rate, int) and sample_rate > 0
+        ), "Sample rate must be None or a positive integer"
+        assert (
+            isinstance(chunk_size, int) and chunk_size > 0
+        ), "Chunk size must be a positive integer"
 
         # set up PyAudio
-        self.speaker=speaker
+        self.speaker = speaker
         self.pyaudio_module = self.get_pyaudio()
         audio = self.pyaudio_module.PyAudio()
         try:
             count = audio.get_device_count()  # obtain device count
             if device_index is not None:  # ensure device index is in range
-                assert 0 <= device_index < count, "Device index out of range ({} devices available; device index should be between 0 and {} inclusive)".format(count, count - 1)
-            if sample_rate is None:  # automatically set the sample rate to the hardware's default sample rate if not specified
-                device_info = audio.get_device_info_by_index(device_index) if device_index is not None else audio.get_default_input_device_info()
-                assert isinstance(device_info.get("defaultSampleRate"), (float, int)) and device_info["defaultSampleRate"] > 0, "Invalid device info returned from PyAudio: {}".format(device_info)
+                assert (
+                    0 <= device_index < count
+                ), "Device index out of range ({} devices available; device index should be between 0 and {} inclusive)".format(
+                    count, count - 1
+                )
+            if (
+                sample_rate is None
+            ):  # automatically set the sample rate to the hardware's default sample rate if not specified
+                device_info = (
+                    audio.get_device_info_by_index(device_index)
+                    if device_index is not None
+                    else audio.get_default_input_device_info()
+                )
+                assert (
+                    isinstance(device_info.get("defaultSampleRate"), (float, int))
+                    and device_info["defaultSampleRate"] > 0
+                ), "Invalid device info returned from PyAudio: {}".format(device_info)
                 sample_rate = int(device_info["defaultSampleRate"])
         finally:
             audio.terminate()
 
         self.device_index = device_index
         self.format = self.pyaudio_module.paInt16  # 16-bit int sampling
-        self.SAMPLE_WIDTH = self.pyaudio_module.get_sample_size(self.format)  # size of each sample
+        self.SAMPLE_WIDTH = self.pyaudio_module.get_sample_size(
+            self.format
+        )  # size of each sample
         self.SAMPLE_RATE = sample_rate  # sampling rate in Hertz
         self.CHUNK = chunk_size  # number of frames stored in each buffer
         self.channels = channels
@@ -97,8 +126,13 @@ class Microphone(AudioSource):
         except ImportError:
             raise AttributeError("Could not find PyAudio; check installation")
         from distutils.version import LooseVersion
+
         if LooseVersion(pyaudio.__version__) < LooseVersion("0.2.11"):
-            raise AttributeError("PyAudio 0.2.11 or later is required (found version {})".format(pyaudio.__version__))
+            raise AttributeError(
+                "PyAudio 0.2.11 or later is required (found version {})".format(
+                    pyaudio.__version__
+                )
+            )
         return pyaudio
 
     @staticmethod
@@ -132,16 +166,23 @@ class Microphone(AudioSource):
             for device_index in range(audio.get_device_count()):
                 device_info = audio.get_device_info_by_index(device_index)
                 device_name = device_info.get("name")
-                assert isinstance(device_info.get("defaultSampleRate"), (float, int)) and device_info["defaultSampleRate"] > 0, "Invalid device info returned from PyAudio: {}".format(device_info)
+                assert (
+                    isinstance(device_info.get("defaultSampleRate"), (float, int))
+                    and device_info["defaultSampleRate"] > 0
+                ), "Invalid device info returned from PyAudio: {}".format(device_info)
                 try:
                     # read audio
                     pyaudio_stream = audio.open(
-                        input_device_index=device_index, channels=1, format=pyaudio_module.paInt16,
-                        rate=int(device_info["defaultSampleRate"]), input=True
+                        input_device_index=device_index,
+                        channels=1,
+                        format=pyaudio_module.paInt16,
+                        rate=int(device_info["defaultSampleRate"]),
+                        input=True,
                     )
                     try:
                         buffer = pyaudio_stream.read(1024)
-                        if not pyaudio_stream.is_stopped(): pyaudio_stream.stop_stream()
+                        if not pyaudio_stream.is_stopped():
+                            pyaudio_stream.stop_stream()
                     finally:
                         pyaudio_stream.close()
                 except Exception:
@@ -150,7 +191,9 @@ class Microphone(AudioSource):
                 # compute RMS of debiased audio
                 energy = -audioop.rms(buffer, 2)
                 energy_bytes = bytes([energy & 0xFF, (energy >> 8) & 0xFF])
-                debiased_energy = audioop.rms(audioop.add(buffer, energy_bytes * (len(buffer) // 2), 2), 2)
+                debiased_energy = audioop.rms(
+                    audioop.add(buffer, energy_bytes * (len(buffer) // 2), 2), 2
+                )
 
                 if debiased_energy > 30:  # probably actually audio
                     result[device_index] = device_name
@@ -159,7 +202,9 @@ class Microphone(AudioSource):
         return result
 
     def __enter__(self):
-        assert self.stream is None, "This audio source is already inside a context manager"
+        assert (
+            self.stream is None
+        ), "This audio source is already inside a context manager"
         self.audio = self.pyaudio_module.PyAudio()
 
         try:
@@ -171,14 +216,18 @@ class Microphone(AudioSource):
                         format=self.format,
                         rate=self.SAMPLE_RATE,
                         frames_per_buffer=self.CHUNK,
-                        input=True
+                        input=True,
                     )
                 )
             else:
                 self.stream = Microphone.MicrophoneStream(
                     self.audio.open(
-                        input_device_index=self.device_index, channels=1, format=self.format,
-                        rate=self.SAMPLE_RATE, frames_per_buffer=self.CHUNK, input=True,
+                        input_device_index=self.device_index,
+                        channels=1,
+                        format=self.format,
+                        rate=self.SAMPLE_RATE,
+                        frames_per_buffer=self.CHUNK,
+                        input=True,
                     )
                 )
         except Exception:
@@ -225,7 +274,9 @@ class AudioFile(AudioSource):
     """
 
     def __init__(self, filename_or_fileobject):
-        assert isinstance(filename_or_fileobject, (type(""), type(u""))) or hasattr(filename_or_fileobject, "read"), "Given audio file must be a filename string or a file-like object"
+        assert isinstance(filename_or_fileobject, (type(""), type(""))) or hasattr(
+            filename_or_fileobject, "read"
+        ), "Given audio file must be a filename string or a file-like object"
         self.filename_or_fileobject = filename_or_fileobject
         self.stream = None
         self.DURATION = None
@@ -237,7 +288,9 @@ class AudioFile(AudioSource):
         self.FRAME_COUNT = None
 
     def __enter__(self):
-        assert self.stream is None, "This audio source is already inside a context manager"
+        assert (
+            self.stream is None
+        ), "This audio source is already inside a context manager"
         try:
             # attempt to read the file as WAV
             self.audio_reader = wave.open(self.filename_or_fileobject, "rb")
@@ -252,37 +305,60 @@ class AudioFile(AudioSource):
                 if hasattr(self.filename_or_fileobject, "read"):
                     flac_data = self.filename_or_fileobject.read()
                 else:
-                    with open(self.filename_or_fileobject, "rb") as f: flac_data = f.read()
+                    with open(self.filename_or_fileobject, "rb") as f:
+                        flac_data = f.read()
 
                 # run the FLAC converter with the FLAC data to get the AIFF data
                 flac_converter = get_flac_converter()
-                if os.name == "nt":  # on Windows, specify that the process is to be started without showing a console window
+                if (
+                    os.name == "nt"
+                ):  # on Windows, specify that the process is to be started without showing a console window
                     startup_info = subprocess.STARTUPINFO()
-                    startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # specify that the wShowWindow field of `startup_info` contains a value
-                    startup_info.wShowWindow = subprocess.SW_HIDE  # specify that the console window should be hidden
+                    startup_info.dwFlags |= (
+                        subprocess.STARTF_USESHOWWINDOW
+                    )  # specify that the wShowWindow field of `startup_info` contains a value
+                    startup_info.wShowWindow = (
+                        subprocess.SW_HIDE
+                    )  # specify that the console window should be hidden
                 else:
                     startup_info = None  # default startupinfo
-                process = subprocess.Popen([
-                    flac_converter,
-                    "--stdout", "--totally-silent",  # put the resulting AIFF file in stdout, and make sure it's not mixed with any program output
-                    "--decode", "--force-aiff-format",  # decode the FLAC file into an AIFF file
-                    "-",  # the input FLAC file contents will be given in stdin
-                ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, startupinfo=startup_info)
+                process = subprocess.Popen(
+                    [
+                        flac_converter,
+                        "--stdout",
+                        "--totally-silent",  # put the resulting AIFF file in stdout, and make sure it's not mixed with any program output
+                        "--decode",
+                        "--force-aiff-format",  # decode the FLAC file into an AIFF file
+                        "-",  # the input FLAC file contents will be given in stdin
+                    ],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    startupinfo=startup_info,
+                )
                 aiff_data, _ = process.communicate(flac_data)
                 aiff_file = io.BytesIO(aiff_data)
                 try:
                     self.audio_reader = aifc.open(aiff_file, "rb")
                 except (aifc.Error, EOFError):
-                    raise ValueError("Audio file could not be read as PCM WAV, AIFF/AIFF-C, or Native FLAC; check if file is corrupted or in another format")
+                    raise ValueError(
+                        "Audio file could not be read as PCM WAV, AIFF/AIFF-C, or Native FLAC; check if file is corrupted or in another format"
+                    )
                 self.little_endian = False  # AIFF is a big-endian format
-        assert 1 <= self.audio_reader.getnchannels() <= 2, "Audio must be mono or stereo"
+        assert (
+            1 <= self.audio_reader.getnchannels() <= 2
+        ), "Audio must be mono or stereo"
         self.SAMPLE_WIDTH = self.audio_reader.getsampwidth()
 
         # 24-bit audio needs some special handling for old Python versions (workaround for https://bugs.python.org/issue12866)
         samples_24_bit_pretending_to_be_32_bit = False
         if self.SAMPLE_WIDTH == 3:  # 24-bit audio
-            try: audioop.bias(b"", self.SAMPLE_WIDTH, 0)  # test whether this sample width is supported (for example, ``audioop`` in Python 3.3 and below don't support sample width 3, while Python 3.4+ do)
-            except audioop.error:  # this version of audioop doesn't support 24-bit audio (probably Python 3.3 or less)
+            try:
+                audioop.bias(
+                    b"", self.SAMPLE_WIDTH, 0
+                )  # test whether this sample width is supported (for example, ``audioop`` in Python 3.3 and below don't support sample width 3, while Python 3.4+ do)
+            except (
+                audioop.error
+            ):  # this version of audioop doesn't support 24-bit audio (probably Python 3.3 or less)
                 samples_24_bit_pretending_to_be_32_bit = True  # while the ``AudioFile`` instance will outwardly appear to be 32-bit, it will actually internally be 24-bit
                 self.SAMPLE_WIDTH = 4  # the ``AudioFile`` instance should present itself as a 32-bit stream now, since we'll be converting into 32-bit on the fly when reading
 
@@ -290,38 +366,65 @@ class AudioFile(AudioSource):
         self.CHUNK = 4096
         self.FRAME_COUNT = self.audio_reader.getnframes()
         self.DURATION = self.FRAME_COUNT / float(self.SAMPLE_RATE)
-        self.stream = AudioFile.AudioFileStream(self.audio_reader, self.little_endian, samples_24_bit_pretending_to_be_32_bit)
+        self.stream = AudioFile.AudioFileStream(
+            self.audio_reader,
+            self.little_endian,
+            samples_24_bit_pretending_to_be_32_bit,
+        )
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if not hasattr(self.filename_or_fileobject, "read"):  # only close the file if it was opened by this class in the first place (if the file was originally given as a path)
+        if not hasattr(
+            self.filename_or_fileobject, "read"
+        ):  # only close the file if it was opened by this class in the first place (if the file was originally given as a path)
             self.audio_reader.close()
         self.stream = None
         self.DURATION = None
 
     class AudioFileStream(object):
-        def __init__(self, audio_reader, little_endian, samples_24_bit_pretending_to_be_32_bit):
-            self.audio_reader = audio_reader  # an audio file object (e.g., a `wave.Wave_read` instance)
+        def __init__(
+            self, audio_reader, little_endian, samples_24_bit_pretending_to_be_32_bit
+        ):
+            self.audio_reader = (
+                audio_reader  # an audio file object (e.g., a `wave.Wave_read` instance)
+            )
             self.little_endian = little_endian  # whether the audio data is little-endian (when working with big-endian things, we'll have to convert it to little-endian before we process it)
             self.samples_24_bit_pretending_to_be_32_bit = samples_24_bit_pretending_to_be_32_bit  # this is true if the audio is 24-bit audio, but 24-bit audio isn't supported, so we have to pretend that this is 32-bit audio and convert it on the fly
 
         def read(self, size=-1):
-            buffer = self.audio_reader.readframes(self.audio_reader.getnframes() if size == -1 else size)
-            if not isinstance(buffer, bytes): buffer = b""  # workaround for https://bugs.python.org/issue24608
+            buffer = self.audio_reader.readframes(
+                self.audio_reader.getnframes() if size == -1 else size
+            )
+            if not isinstance(buffer, bytes):
+                buffer = b""  # workaround for https://bugs.python.org/issue24608
 
             sample_width = self.audio_reader.getsampwidth()
-            if not self.little_endian:  # big endian format, convert to little endian on the fly
-                if hasattr(audioop, "byteswap"):  # ``audioop.byteswap`` was only added in Python 3.4 (incidentally, that also means that we don't need to worry about 24-bit audio being unsupported, since Python 3.4+ always has that functionality)
+            if (
+                not self.little_endian
+            ):  # big endian format, convert to little endian on the fly
+                if hasattr(
+                    audioop, "byteswap"
+                ):  # ``audioop.byteswap`` was only added in Python 3.4 (incidentally, that also means that we don't need to worry about 24-bit audio being unsupported, since Python 3.4+ always has that functionality)
                     buffer = audioop.byteswap(buffer, sample_width)
                 else:  # manually reverse the bytes of each sample, which is slower but works well enough as a fallback
-                    buffer = buffer[sample_width - 1::-1] + b"".join(buffer[i + sample_width:i:-1] for i in range(sample_width - 1, len(buffer), sample_width))
+                    buffer = buffer[sample_width - 1 :: -1] + b"".join(
+                        buffer[i + sample_width : i : -1]
+                        for i in range(sample_width - 1, len(buffer), sample_width)
+                    )
 
             # workaround for https://bugs.python.org/issue12866
-            if self.samples_24_bit_pretending_to_be_32_bit:  # we need to convert samples from 24-bit to 32-bit before we can process them with ``audioop`` functions
-                buffer = b"".join(b"\x00" + buffer[i:i + sample_width] for i in range(0, len(buffer), sample_width))  # since we're in little endian, we prepend a zero byte to each 24-bit sample to get a 32-bit sample
+            if (
+                self.samples_24_bit_pretending_to_be_32_bit
+            ):  # we need to convert samples from 24-bit to 32-bit before we can process them with ``audioop`` functions
+                buffer = b"".join(
+                    b"\x00" + buffer[i : i + sample_width]
+                    for i in range(0, len(buffer), sample_width)
+                )  # since we're in little endian, we prepend a zero byte to each 24-bit sample to get a 32-bit sample
                 sample_width = 4  # make sure we thread the buffer as 32-bit audio now, after converting it from 24-bit audio
             if self.audio_reader.getnchannels() != 1:  # stereo audio
-                buffer = audioop.tomono(buffer, sample_width, 1, 1)  # convert stereo audio data to mono
+                buffer = audioop.tomono(
+                    buffer, sample_width, 1, 1
+                )  # convert stereo audio data to mono
             return buffer
 
 
@@ -334,11 +437,15 @@ class Recognizer(AudioSource):
         self.dynamic_energy_threshold = True
         self.dynamic_energy_adjustment_damping = 0.15
         self.dynamic_energy_ratio = 1.5
-        self.pause_threshold = 0.8  # seconds of non-speaking audio before a phrase is considered complete
+        self.pause_threshold = (
+            0.8  # seconds of non-speaking audio before a phrase is considered complete
+        )
         self.operation_timeout = None  # seconds after an internal operation (e.g., an API request) starts before it times out, or ``None`` for no timeout
 
         self.phrase_threshold = 0.3  # minimum seconds of speaking audio before we consider the speaking audio a phrase - values below this are ignored (for filtering out clicks and pops)
-        self.non_speaking_duration = 0.5  # seconds of non-speaking audio to keep on both sides of the recording
+        self.non_speaking_duration = (
+            0.5  # seconds of non-speaking audio to keep on both sides of the recording
+        )
 
     def record(self, source, duration=None, offset=None):
         """
@@ -347,7 +454,9 @@ class Recognizer(AudioSource):
         If ``duration`` is not specified, then it will record until there is no more audio input.
         """
         assert isinstance(source, AudioSource), "Source must be an audio source"
-        assert source.stream is not None, "Audio source must be entered before recording, see documentation for ``AudioSource``; are you using ``source`` outside of a ``with`` statement?"
+        assert (
+            source.stream is not None
+        ), "Audio source must be entered before recording, see documentation for ``AudioSource``; are you using ``source`` outside of a ``with`` statement?"
 
         frames = io.BytesIO()
         seconds_per_buffer = (source.CHUNK + 0.0) / source.SAMPLE_RATE
@@ -361,11 +470,13 @@ class Recognizer(AudioSource):
                     offset_reached = True
 
             buffer = source.stream.read(source.CHUNK)
-            if len(buffer) == 0: break
+            if len(buffer) == 0:
+                break
 
             if offset_reached or not offset:
                 elapsed_time += seconds_per_buffer
-                if duration and elapsed_time > duration: break
+                if duration and elapsed_time > duration:
+                    break
 
                 frames.write(buffer)
 
@@ -382,7 +493,9 @@ class Recognizer(AudioSource):
         The ``duration`` parameter is the maximum number of seconds that it will dynamically adjust the threshold for before returning. This value should be at least 0.5 in order to get a representative sample of the ambient noise.
         """
         assert isinstance(source, AudioSource), "Source must be an audio source"
-        assert source.stream is not None, "Audio source must be entered before adjusting, see documentation for ``AudioSource``; are you using ``source`` outside of a ``with`` statement?"
+        assert (
+            source.stream is not None
+        ), "Audio source must be entered before adjusting, see documentation for ``AudioSource``; are you using ``source`` outside of a ``with`` statement?"
         assert self.pause_threshold >= self.non_speaking_duration >= 0
 
         seconds_per_buffer = (source.CHUNK + 0.0) / source.SAMPLE_RATE
@@ -391,16 +504,25 @@ class Recognizer(AudioSource):
         # adjust energy threshold until a phrase starts
         while True:
             elapsed_time += seconds_per_buffer
-            if elapsed_time > duration: break
+            if elapsed_time > duration:
+                break
             buffer = source.stream.read(source.CHUNK)
-            energy = audioop.rms(buffer, source.SAMPLE_WIDTH)  # energy of the audio signal
+            energy = audioop.rms(
+                buffer, source.SAMPLE_WIDTH
+            )  # energy of the audio signal
 
             # dynamically adjust the energy threshold using asymmetric weighted average
-            damping = self.dynamic_energy_adjustment_damping ** seconds_per_buffer  # account for different chunk sizes and rates
+            damping = (
+                self.dynamic_energy_adjustment_damping**seconds_per_buffer
+            )  # account for different chunk sizes and rates
             target_energy = energy * self.dynamic_energy_ratio
-            self.energy_threshold = self.energy_threshold * damping + target_energy * (1 - damping)
+            self.energy_threshold = self.energy_threshold * damping + target_energy * (
+                1 - damping
+            )
 
-    def listen(self, source, timeout=None, phrase_time_limit=None):
+    def listen(
+        self, source, timeout=None, phrase_time_limit=None, stopper=lambda: False
+    ):
         """
         Records a single phrase from ``source`` (an ``AudioSource`` instance) into an ``AudioData`` instance, which it returns.
 
@@ -413,13 +535,21 @@ class Recognizer(AudioSource):
         This operation will always complete within ``timeout + phrase_timeout`` seconds if both are numbers, either by returning the audio data, or by raising a ``speech_recognition.WaitTimeoutError`` exception.
         """
         assert isinstance(source, AudioSource), "Source must be an audio source"
-        assert source.stream is not None, "Audio source must be entered before listening, see documentation for ``AudioSource``; are you using ``source`` outside of a ``with`` statement?"
+        assert (
+            source.stream is not None
+        ), "Audio source must be entered before listening, see documentation for ``AudioSource``; are you using ``source`` outside of a ``with`` statement?"
         assert self.pause_threshold >= self.non_speaking_duration >= 0
 
         seconds_per_buffer = float(source.CHUNK) / source.SAMPLE_RATE
-        pause_buffer_count = int(math.ceil(self.pause_threshold / seconds_per_buffer))  # number of buffers of non-speaking audio during a phrase, before the phrase should be considered complete
-        phrase_buffer_count = int(math.ceil(self.phrase_threshold / seconds_per_buffer))  # minimum number of buffers of speaking audio before we consider the speaking audio a phrase
-        non_speaking_buffer_count = int(math.ceil(self.non_speaking_duration / seconds_per_buffer))  # maximum number of buffers of non-speaking audio to retain before and after a phrase
+        pause_buffer_count = int(
+            math.ceil(self.pause_threshold / seconds_per_buffer)
+        )  # number of buffers of non-speaking audio during a phrase, before the phrase should be considered complete
+        phrase_buffer_count = int(
+            math.ceil(self.phrase_threshold / seconds_per_buffer)
+        )  # minimum number of buffers of speaking audio before we consider the speaking audio a phrase
+        non_speaking_buffer_count = int(
+            math.ceil(self.non_speaking_duration / seconds_per_buffer)
+        )  # maximum number of buffers of non-speaking audio to retain before and after a phrase
 
         # read audio input for phrases until there is a phrase that is long enough
         elapsed_time = 0  # number of seconds of audio read
@@ -429,43 +559,64 @@ class Recognizer(AudioSource):
 
             # store audio input until the phrase starts
             while True:
+                if stopper():
+                    raise InterruptedError("Interrupted via stopper")
+
                 # handle waiting too long for phrase by raising an exception
                 elapsed_time += seconds_per_buffer
                 if timeout and elapsed_time > timeout:
-                    raise WaitTimeoutError("listening timed out while waiting for phrase to start")
+                    raise WaitTimeoutError(
+                        "listening timed out while waiting for phrase to start"
+                    )
 
                 buffer = source.stream.read(source.CHUNK)
-                if len(buffer) == 0: break  # reached end of the stream
+                if len(buffer) == 0:
+                    break  # reached end of the stream
                 frames.append(buffer)
-                if len(frames) > non_speaking_buffer_count:  # ensure we only keep the needed amount of non-speaking buffers
+                if (
+                    len(frames) > non_speaking_buffer_count
+                ):  # ensure we only keep the needed amount of non-speaking buffers
                     frames.popleft()
 
                 # detect whether speaking has started on audio input
-                energy = audioop.rms(buffer, source.SAMPLE_WIDTH)  # energy of the audio signal
-                if energy > self.energy_threshold: break
+                energy = audioop.rms(
+                    buffer, source.SAMPLE_WIDTH
+                )  # energy of the audio signal
+                if energy > self.energy_threshold:
+                    break
 
                 # dynamically adjust the energy threshold using asymmetric weighted average
                 if self.dynamic_energy_threshold:
-                    damping = self.dynamic_energy_adjustment_damping ** seconds_per_buffer  # account for different chunk sizes and rates
+                    damping = (
+                        self.dynamic_energy_adjustment_damping**seconds_per_buffer
+                    )  # account for different chunk sizes and rates
                     target_energy = energy * self.dynamic_energy_ratio
-                    self.energy_threshold = self.energy_threshold * damping + target_energy * (1 - damping)
+                    self.energy_threshold = (
+                        self.energy_threshold * damping + target_energy * (1 - damping)
+                    )
 
             # read audio input until the phrase ends
             pause_count, phrase_count = 0, 0
             phrase_start_time = elapsed_time
-            while True:
+            while not stopper():
                 # handle phrase being too long by cutting off the audio
                 elapsed_time += seconds_per_buffer
-                if phrase_time_limit and elapsed_time - phrase_start_time > phrase_time_limit:
+                if (
+                    phrase_time_limit
+                    and elapsed_time - phrase_start_time > phrase_time_limit
+                ):
                     break
 
                 buffer = source.stream.read(source.CHUNK)
-                if len(buffer) == 0: break  # reached end of the stream
+                if len(buffer) == 0:
+                    break  # reached end of the stream
                 frames.append(buffer)
                 phrase_count += 1
 
                 # check if speaking has stopped for longer than the pause threshold on the audio input
-                energy = audioop.rms(buffer, source.SAMPLE_WIDTH)  # unit energy of the audio signal within the buffer
+                energy = audioop.rms(
+                    buffer, source.SAMPLE_WIDTH
+                )  # unit energy of the audio signal within the buffer
                 if energy > self.energy_threshold:
                     pause_count = 0
                 else:
@@ -474,11 +625,15 @@ class Recognizer(AudioSource):
                     break
 
             # check how long the detected phrase is, and retry listening if the phrase is too short
-            phrase_count -= pause_count  # exclude the buffers for the pause before the phrase
-            if phrase_count >= phrase_buffer_count or len(buffer) == 0: break  # phrase is long enough or we've reached the end of the stream, so stop listening
+            phrase_count -= (
+                pause_count  # exclude the buffers for the pause before the phrase
+            )
+            if phrase_count >= phrase_buffer_count or len(buffer) == 0:
+                break  # phrase is long enough or we've reached the end of the stream, so stop listening
 
         # obtain frame data
-        for i in range(pause_count - non_speaking_buffer_count): frames.pop()  # remove extra non-speaking frames at the end
+        for i in range(pause_count - non_speaking_buffer_count):
+            frames.pop()  # remove extra non-speaking frames at the end
         frame_data = b"".join(frames)
 
         return AudioData(frame_data, source.SAMPLE_RATE, source.SAMPLE_WIDTH)
@@ -496,12 +651,17 @@ class Recognizer(AudioSource):
         assert isinstance(source, AudioSource), "Source must be an audio source"
         running = [True, False]
 
+        def is_listen_stopped():
+            return not running[0]
+
         def threaded_listen():
             with source as s:
                 while running[0]:
                     try:  # listen for 1 second, then check again if the stop function has been called
-                        audio = self.listen(s, 1, phrase_time_limit)
+                        audio = self.listen(s, 1, phrase_time_limit, is_listen_stopped)
                     except WaitTimeoutError:  # listening timed out, just try again
+                        pass
+                    except InterruptedError:  # listening interrupted
                         pass
                     else:
                         if running[0] or running[1]:
@@ -522,6 +682,7 @@ class Recognizer(AudioSource):
 
 class PortableNamedTemporaryFile(object):
     """Limited replacement for ``tempfile.NamedTemporaryFile``, except unlike ``tempfile.NamedTemporaryFile``, the file can be opened again while it's currently open, even on Windows."""
+
     def __init__(self, mode="w+b"):
         self.mode = mode
 
@@ -555,24 +716,75 @@ class PortableNamedTemporaryFile(object):
 WavFile = AudioFile  # WavFile was renamed to AudioFile in 3.4.1
 
 
-def recognize_api(self, audio_data, client_access_token, language="en", session_id=None, show_all=False):
+def recognize_api(
+    self,
+    audio_data,
+    client_access_token,
+    language="en",
+    session_id=None,
+    show_all=False,
+):
     wav_data = audio_data.get_wav_data(convert_rate=16000, convert_width=2)
     url = "https://api.api.ai/v1/query"
     while True:
         boundary = uuid.uuid4().hex
-        if boundary.encode("utf-8") not in wav_data: break
-    if session_id is None: session_id = uuid.uuid4().hex
-    data = b"--" + boundary.encode("utf-8") + b"\r\n" + b"Content-Disposition: form-data; name=\"request\"\r\n" + b"Content-Type: application/json\r\n" + b"\r\n" + b"{\"v\": \"20150910\", \"sessionId\": \"" + session_id.encode("utf-8") + b"\", \"lang\": \"" + language.encode("utf-8") + b"\"}\r\n" + b"--" + boundary.encode("utf-8") + b"\r\n" + b"Content-Disposition: form-data; name=\"voiceData\"; filename=\"audio.wav\"\r\n" + b"Content-Type: audio/wav\r\n" + b"\r\n" + wav_data + b"\r\n" + b"--" + boundary.encode("utf-8") + b"--\r\n"
-    request = Request(url, data=data, headers={"Authorization": "Bearer {}".format(client_access_token), "Content-Length": str(len(data)), "Expect": "100-continue", "Content-Type": "multipart/form-data; boundary={}".format(boundary)})
-    try: response = urlopen(request, timeout=10)
-    except HTTPError as e: raise RequestError("recognition request failed: {}".format(e.reason))
-    except URLError as e: raise RequestError("recognition connection failed: {}".format(e.reason))
+        if boundary.encode("utf-8") not in wav_data:
+            break
+    if session_id is None:
+        session_id = uuid.uuid4().hex
+    data = (
+        b"--"
+        + boundary.encode("utf-8")
+        + b"\r\n"
+        + b'Content-Disposition: form-data; name="request"\r\n'
+        + b"Content-Type: application/json\r\n"
+        + b"\r\n"
+        + b'{"v": "20150910", "sessionId": "'
+        + session_id.encode("utf-8")
+        + b'", "lang": "'
+        + language.encode("utf-8")
+        + b'"}\r\n'
+        + b"--"
+        + boundary.encode("utf-8")
+        + b"\r\n"
+        + b'Content-Disposition: form-data; name="voiceData"; filename="audio.wav"\r\n'
+        + b"Content-Type: audio/wav\r\n"
+        + b"\r\n"
+        + wav_data
+        + b"\r\n"
+        + b"--"
+        + boundary.encode("utf-8")
+        + b"--\r\n"
+    )
+    request = Request(
+        url,
+        data=data,
+        headers={
+            "Authorization": "Bearer {}".format(client_access_token),
+            "Content-Length": str(len(data)),
+            "Expect": "100-continue",
+            "Content-Type": "multipart/form-data; boundary={}".format(boundary),
+        },
+    )
+    try:
+        response = urlopen(request, timeout=10)
+    except HTTPError as e:
+        raise RequestError("recognition request failed: {}".format(e.reason))
+    except URLError as e:
+        raise RequestError("recognition connection failed: {}".format(e.reason))
     response_text = response.read().decode("utf-8")
     result = json.loads(response_text)
-    if show_all: return result
-    if "status" not in result or "errorType" not in result["status"] or result["status"]["errorType"] != "success":
+    if show_all:
+        return result
+    if (
+        "status" not in result
+        or "errorType" not in result["status"]
+        or result["status"]["errorType"] != "success"
+    ):
         raise UnknownValueError()
     return result["result"]["resolvedQuery"]
 
 
-Recognizer.recognize_api = classmethod(recognize_api)  # API.AI Speech Recognition is deprecated/not recommended as of 3.5.0, and currently is only optionally available for paid plans
+Recognizer.recognize_api = classmethod(
+    recognize_api
+)  # API.AI Speech Recognition is deprecated/not recommended as of 3.5.0, and currently is only optionally available for paid plans

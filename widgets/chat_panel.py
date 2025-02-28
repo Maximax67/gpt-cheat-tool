@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (
     QPushButton,
     QPlainTextEdit,
 )
-from PySide6.QtCore import QMetaObject, Qt, Q_ARG, Slot
+from PySide6.QtGui import QKeyEvent
+from PySide6.QtCore import QMetaObject, Qt, Q_ARG, Slot, QEvent, QSize
 
 from services.generate_text.ChatController import ChatController
 
@@ -47,10 +48,12 @@ class ChatPanel(QWidget):
         self.input_text = QPlainTextEdit(self)
         self.input_text.setPlaceholderText("Type your message...")
         self.input_text.setFixedHeight(35)
+        self.input_text.installEventFilter(self)
         self.input_text.textChanged.connect(self._adjust_input_height)
 
         self.send_button = QPushButton()
         self.send_button.setFixedHeight(35)
+        self.send_button.setFixedWidth(35)
         self.send_button.setToolTip("Send text")
         self.send_button.clicked.connect(self._handle_send_button_click)
 
@@ -59,9 +62,26 @@ class ChatPanel(QWidget):
         self.layout.addLayout(input_layout)
 
     def _adjust_input_height(self):
-        doc_height = self.input_text.document().size().height()
-        new_height = max(35, min(150, doc_height + 10))
+        line_height = self.input_text.fontMetrics().height()
+        num_lines = self.input_text.document().size().height()
+        doc_height = num_lines * line_height + 10
+        new_height = max(35, min(150, doc_height))
+
         self.input_text.setFixedHeight(new_height)
+        self.send_button.setFixedHeight(new_height)
+
+    def eventFilter(self, obj, event):
+        if obj == self.input_text and event.type() == QEvent.KeyPress:
+            if isinstance(event, QKeyEvent):  # Ensure it's a key event
+                if (
+                    event.key() == Qt.Key_Return
+                    and event.modifiers() & Qt.ControlModifier
+                ):
+                    # If user pressed Ctrl + Enter, handle send event
+                    self._handle_send_button_click()
+                    return True  # Consume the event
+
+        return super().eventFilter(obj, event)
 
     @Slot(int)
     def update_message(self, id: int):

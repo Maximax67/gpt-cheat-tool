@@ -8,10 +8,10 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPalette, QColor
 
 from services.record_audio.AudioSourceType import AudioSourceType
 from ui.icons import Icon, get_icon
+from ui.themes import ThemeManager
 
 
 class TranscriptionBlockWidget(QWidget):
@@ -129,19 +129,10 @@ class TranscriptionBlockWidget(QWidget):
             self._set_text_from_history()
 
     def update_theme_ui(self):
-        app = QApplication.instance()
-        palette: QPalette = app.palette()
-        color: QColor = palette.color(QPalette.ColorRole.Text)
-
-        # Converting the RGB color values to compute luminance by the following formula:
-        # Y = 0.2126 * R + 0.7152 * G + 0.0722 * B
-        y = 0.2126 * color.red() + 0.7152 * color.green() + 0.0722 * color.blue()
-
-        # Check if the value is nearer to 0 (black) or to 255 (white)
-        if y < 128:  # White theme as text color is black
+        if ThemeManager.is_white_theme():
             mic_color = "#BBFFC1"  # Light Green
             file_color = "#FEC9C8"  # Light Red
-        else:  # Dark theme as text color is white
+        else:
             mic_color = "#006400"  # Dark Green
             file_color = "#8B0000"  # Dark Red
 
