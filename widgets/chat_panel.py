@@ -47,13 +47,12 @@ class ChatPanel(QWidget):
 
         self.input_text = QPlainTextEdit(self)
         self.input_text.setPlaceholderText("Type your message...")
-        self.input_text.setFixedHeight(35)
+        self.input_text.setFixedHeight(31)
         self.input_text.installEventFilter(self)
         self.input_text.textChanged.connect(self._adjust_input_height)
 
         self.send_button = QPushButton()
-        self.send_button.setFixedHeight(35)
-        self.send_button.setFixedWidth(35)
+        self.send_button.setFixedSize(31, 31)
         self.send_button.setToolTip("Send text")
         self.send_button.clicked.connect(self._handle_send_button_click)
 
@@ -64,8 +63,8 @@ class ChatPanel(QWidget):
     def _adjust_input_height(self):
         line_height = self.input_text.fontMetrics().height()
         num_lines = self.input_text.document().size().height()
-        doc_height = num_lines * line_height + 10
-        new_height = max(35, min(150, doc_height))
+        doc_height = num_lines * line_height + 15
+        new_height = max(31, min(143, doc_height))
 
         self.input_text.setFixedHeight(new_height)
         self.send_button.setFixedHeight(new_height)

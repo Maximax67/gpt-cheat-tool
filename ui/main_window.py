@@ -38,6 +38,7 @@ class MainWindow(QMainWindow):
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         main_layout = QHBoxLayout(main_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
 
         self.setMinimumWidth(400)
         self.setMinimumHeight(400)

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QSizePolicy,
     QPlainTextEdit,
+    QBoxLayout,
 )
 from PySide6.QtCore import Qt, Signal, QSize
 
@@ -34,24 +35,21 @@ class ChatMessageWidget(QWidget):
 
     def _setup_ui(self):
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(10, 0, 10, 0)
+        self.main_layout.setContentsMargins(5, 0, 5, 0)
         self.main_layout.setSpacing(5)
 
-        # Display the message content
         error = str(self.message.error) if self.message.error else None
         if self.message.role == ChatMessageRole.USER:
             text = self.message.text
             if error:
                 self.error_label_color_applied = True
                 text += "\n\n" + error
-
             self.label = QLabel(text)
         else:
             html_text = markdown.markdown(self.message.text)
             if error:
                 self.error_label_color_applied = True
                 html_text += "\n\n" + error
-
             self.label = QLabel(html_text)
             self.label.setTextFormat(Qt.RichText)
 
@@ -61,89 +59,110 @@ class ChatMessageWidget(QWidget):
         self.label.setContentsMargins(5, 5, 5, 5)
         self.main_layout.addWidget(self.label)
 
-        # Control box layout
-        self.control_layout = QHBoxLayout()
-        self.control_layout.setContentsMargins(5, 0, 0, 5)
-        self.control_layout.setAlignment(Qt.AlignLeft)
-        self.control_layout.setSpacing(5)
+        self.action_row = QWidget()
+        self.action_row_layout = QHBoxLayout(self.action_row)
+        self.action_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.action_row_layout.setAlignment(Qt.AlignLeft)
+        self.action_row_layout.setSpacing(5)
 
-        # Switch Message UI (back and next buttons)
+        # Switch Message UI (Back and Next buttons)
         parent = self.message.parent
         total_siblings_count = len(parent.childs) if parent else 0
         if total_siblings_count > 1:
+            self.navigation_row = QWidget()
+            self.navigation_row_layout = QHBoxLayout(self.navigation_row)
+            self.navigation_row_layout.setContentsMargins(0, 0, 0, 0)
+            self.navigation_row_layout.setSpacing(5)
+
             current_pos = parent.childs.index(self.message) + 1
 
-            # Back Button (only enabled if it's not the first message)
             self.back_button = QPushButton()
-            self.back_button.setFixedWidth(20)
-            self.back_button.setFixedHeight(20)
+            self.back_button.setFixedSize(20, 20)
             self.back_button.setIconSize(QSize(12, 12))
             self.back_button.setEnabled(current_pos > 1)
             self.back_button.setToolTip("Previous message")
             self.back_button.clicked.connect(self._on_previous_message)
-            self.control_layout.addWidget(self.back_button)
+            self.navigation_row_layout.addWidget(self.back_button)
 
-            # Current position / Total messages (e.g., 2/4)
             self.position_label = QLabel(f"{current_pos} / {total_siblings_count}")
-            self.position_label.setFixedWidth(40)
-            self.position_label.setFixedHeight(20)
+            self.position_label.setFixedSize(40, 20)
             self.position_label.setAlignment(Qt.AlignCenter)
-            self.control_layout.addWidget(self.position_label)
+            self.navigation_row_layout.addWidget(self.position_label)
 
-            # Next Button (only enabled if it's not the last message)
             self.next_button = QPushButton()
-            self.next_button.setFixedWidth(20)
-            self.next_button.setFixedHeight(20)
+            self.next_button.setFixedSize(20, 20)
             self.next_button.setIconSize(QSize(12, 12))
             self.next_button.setToolTip("Next message")
             self.next_button.setEnabled(current_pos < total_siblings_count)
             self.next_button.clicked.connect(self._on_next_message)
-            self.control_layout.addWidget(self.next_button)
+            self.navigation_row_layout.addWidget(self.next_button)
+
+            # Create a widget container for buttons
+            self.button_container = QWidget()
+            self.control_layout = QHBoxLayout(self.button_container)
+            self.control_layout.setContentsMargins(0, 0, 0, 0)
+            self.control_layout.setAlignment(Qt.AlignLeft)
+            self.control_layout.setSpacing(5)
+
+            self.control_layout.addWidget(self.navigation_row)
+            self.control_layout.addWidget(self.action_row)
+            self.main_layout.addWidget(self.button_container)
         else:
             self.back_button = None
             self.next_button = None
+            self.control_layout = None
+            self.main_layout.addWidget(self.action_row)
 
-        # Copy button
+        # Secondary button layout (copy, edit, regenerate)
         self.copy_button = QPushButton()
-        self.copy_button.setFixedWidth(20)
-        self.copy_button.setFixedHeight(20)
+        self.copy_button.setFixedSize(20, 20)
         self.copy_button.setIconSize(QSize(12, 12))
         self.copy_button.setToolTip("Copy")
         self.copy_button.clicked.connect(self.copy_text)
-        self.control_layout.addWidget(self.copy_button)
+        self.action_row_layout.addWidget(self.copy_button)
 
-        # Edit or Regenerate Button
         if self.message.role == ChatMessageRole.USER:
             self.edit_button = QPushButton()
-            self.edit_button.setFixedWidth(20)
-            self.edit_button.setFixedHeight(20)
+            self.edit_button.setFixedSize(20, 20)
             self.edit_button.setIconSize(QSize(12, 12))
             self.edit_button.setToolTip("Edit")
             self.edit_button.clicked.connect(self._on_edit_message)
-            self.control_layout.addWidget(self.edit_button)
+            self.action_row_layout.addWidget(self.edit_button)
             self.regenerate_button = None
         else:
             self.regenerate_button = QPushButton()
-            self.regenerate_button.setFixedWidth(20)
-            self.regenerate_button.setFixedHeight(20)
+            self.regenerate_button.setFixedSize(20, 20)
             self.regenerate_button.setIconSize(QSize(12, 12))
             self.regenerate_button.setToolTip("Regenerate")
             self.regenerate_button.clicked.connect(self._handle_regenerate)
-            self.control_layout.addWidget(self.regenerate_button)
+            self.action_row_layout.addWidget(self.regenerate_button)
             self.edit_button = None
 
-        self.main_layout.addLayout(self.control_layout)
+        # Add button container to the layout
         self.setLayout(self.main_layout)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+
+        if self.control_layout:
+            available_width = self.width()
+
+            # Minimum width needed to fit all buttons in one row
+            min_required_width = 165
+
+            if available_width < min_required_width:
+                self.control_layout.setDirection(QBoxLayout.TopToBottom)
+            else:
+                self.control_layout.setDirection(QBoxLayout.LeftToRight)
 
     def _on_edit_message(self):
         self._original_text = self.message.text
 
         self.label.hide()
-
-        for i in range(self.control_layout.count()):
-            widget: QWidget = self.control_layout.itemAt(i).widget()
-            if widget:
-                widget.hide()
+        if self.control_layout:
+            self.button_container.hide()
+        else:
+            self.action_row.hide()
 
         self.text_edit = QPlainTextEdit()
         self.text_edit.setPlaceholderText("Enter new message text")
@@ -185,11 +204,10 @@ class ChatMessageWidget(QWidget):
 
         self.edit_buttons_layout = None
         self.label.show()
-
-        for i in range(self.control_layout.count()):
-            widget: QWidget = self.control_layout.itemAt(i).widget()
-            if widget:
-                widget.show()
+        if self.control_layout:
+            self.button_container.show()
+        else:
+            self.action_row.show()
 
     def _apply_edit(self):
         new_text = self.text_edit.toPlainText().strip()
