@@ -99,6 +99,7 @@ class AdjustForNoiseTask(QThread):
             self.recorder.adjust_for_noise()
             self.noise_adjusted.emit()
         except Exception as e:
+            print(e)
             self.error.emit(str(e))
 
 
@@ -258,6 +259,7 @@ class TranscriptionPanel(QWidget):
         self._mic_adjuct_noise_thread.noise_adjusted.connect(
             self._on_mic_noise_adjusted
         )
+        self._mic_adjuct_noise_thread.error.connect(self._on_mic_recorder_error)
         self._mic_adjuct_noise_thread.start()
 
     def _on_mic_noise_adjusted(self):
@@ -282,12 +284,15 @@ class TranscriptionPanel(QWidget):
         self.is_mic_init = True
 
         if self.is_first_init_attempt:
+            self.is_first_init_attempt = False
             QTimer.singleShot(1000, self._init_speaker_recorder)
 
     def _init_speaker_recorder(self, is_retry: bool = False):
         speaker_settings = self.settings.speaker
 
-        self._update_speaker_transcription_message(speaker_settings.messages.init_message)
+        self._update_speaker_transcription_message(
+            speaker_settings.messages.init_message
+        )
 
         self.speaker_init_thread = SpeakerInitTask(
             speaker_settings.device_index,
@@ -326,6 +331,7 @@ class TranscriptionPanel(QWidget):
         self._speaker_adjuct_noise_thread.noise_adjusted.connect(
             self._on_speaker_noise_adjusted
         )
+        self._speaker_adjuct_noise_thread.error.connect(self._on_speaker_recorder_error)
         self._speaker_adjuct_noise_thread.start()
 
     def _on_speaker_noise_adjusted(self):

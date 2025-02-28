@@ -93,20 +93,19 @@ class MainWindow(QMainWindow):
         self.transcription_controls = ControlsPanel()
         self.transcription_panel = TranscriptionPanel(self.settings.transcription)
 
-        self.transcription_panel.mic_init_signal.connect(
-            self.transcription_controls.on_mic_init
-        )
-        self.transcription_panel.speaker_init_signal.connect(
-            self.transcription_controls.on_speaker_init
-        )
-        self.transcription_panel.mic_recorder_error.connect(
-            self.transcription_controls.on_mic_error
-        )
-        self.transcription_panel.speaker_recorder_error.connect(
-            self.transcription_controls.on_speaker_error
-        )
+        self.transcription_panel.mic_init_signal.connect(self._on_mic_init)
+        self.transcription_panel.speaker_init_signal.connect(self._on_speaker_init)
+        self.transcription_panel.mic_recorder_error.connect(self._on_mic_error)
+        self.transcription_panel.speaker_recorder_error.connect(self._on_speaker_error)
         self.transcription_panel.forward_signal.connect(
             self.forward_transcription_to_chat
+        )
+
+        self.settings_dialog.audio_input_changed.connect(
+            self.transcription_panel.retry_mic_init
+        )
+        self.settings_dialog.audio_output_changed.connect(
+            self.transcription_panel.retry_speaker_init
         )
 
         self.transcription_controls.mic_toggled.connect(
@@ -116,11 +115,9 @@ class MainWindow(QMainWindow):
             self.transcription_panel.set_speaker_enabled
         )
         self.transcription_controls.open_settings_signal.connect(self.open_settings)
-        self.transcription_controls.retry_mic_init.connect(
-            self.transcription_panel.retry_mic_init
-        )
+        self.transcription_controls.retry_mic_init.connect(self._on_mic_init_retry)
         self.transcription_controls.retry_speaker_init.connect(
-            self.transcription_panel.retry_speaker_init
+            self._on_speaker_init_retry
         )
 
         self.transcription_panel.setup_audio_transcription()
@@ -142,12 +139,47 @@ class MainWindow(QMainWindow):
 
     def _handle_request_quick_answer_context(self):
         context = self.transcription_panel.get_messages(
-            self.settings.text_generator.quick_answers.message_context
+            self.settings.quick_answers.text_generator.message_context
         )
         self.quick_answer_panel.generate_quick_answer(context)
 
     def open_settings(self):
+        self.settings_dialog.populate_audio_devices()
         self.settings_dialog.exec()
+
+    def _on_mic_init(self):
+        self.settings_dialog.unlock_audio_input_selection()
+        self.transcription_controls.on_mic_init()
+
+    def _on_speaker_init(self):
+        self.settings_dialog.unlock_audio_output_selection()
+        self.transcription_controls.on_speaker_init()
+
+    def _on_mic_error(self):
+        self.settings_dialog.unlock_audio_input_selection()
+        self.transcription_controls.on_mic_error()
+
+    def _on_speaker_error(self):
+        self.settings_dialog.unlock_audio_output_selection()
+        self.transcription_controls.on_speaker_error()
+
+    def _on_mic_init_retry(self):
+        self.settings_dialog.lock_audio_input_selection()
+        self.transcription_panel.retry_mic_init()
+
+    def _on_speaker_init_retry(self):
+        self.settings_dialog.lock_audio_output_selection()
+        self.transcription_panel.retry_speaker_init()
+
+    def _on_mic_init_retry_from_settings(self):
+        self.settings_dialog.lock_audio_input_selection()
+        self.transcription_controls.mic_init_retrying()
+        self.transcription_panel.retry_mic_init()
+
+    def _on_speakers_init_retry_from_settings(self):
+        self.settings_dialog.lock_audio_output_selection()
+        self.transcription_controls.speaker_init_retrying()
+        self.transcription_panel.retry_mic_init()
 
     def update_theme(self, theme: Theme):
         if self.theme_manager.set_theme(theme):

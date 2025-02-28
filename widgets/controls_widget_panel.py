@@ -93,6 +93,14 @@ class ControlsPanel(QWidget):
         self.speaker_state = AudioCaptureInitState.ERROR
         self.update_speaker_button_ui()
 
+    def mic_init_retrying(self):
+        self.mic_state = AudioCaptureInitState.INITIALIZING
+        self.update_mic_button_ui()
+
+    def speaker_init_retrying(self):
+        self.speaker_state = AudioCaptureInitState.INITIALIZING
+        self.update_speaker_button_ui()
+
     def update_mic_button_ui(self):
         is_white_theme = ThemeManager.is_white_theme()
 

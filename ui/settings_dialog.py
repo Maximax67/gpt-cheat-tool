@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -9,21 +9,26 @@ from PySide6.QtWidgets import (
     QGroupBox,
 )
 from PySide6.QtCore import Qt, Signal
-
+from services.record_audio.AudioDevices import AudioDevices
 from settings import AppSettings
 from ui.themes import Theme
 
 
 class SettingsDialog(QDialog):
     set_theme_signal = Signal(Theme)
+    audio_input_changed = Signal()
+    audio_output_changed = Signal()
 
-    def __init__(self, settigns: AppSettings, parent=None):
+    def __init__(self, settings: AppSettings, parent=None):
         super().__init__(parent)
 
-        self.settings = settigns
+        self.settings = settings
+        self.ignore_audio_selection = False
 
+        self._setup_ui()
+
+    def _setup_ui(self):
         self.setWindowTitle("Settings")
-        self.setMinimumWidth(400)
 
         # Main layout
         main_layout = QVBoxLayout(self)
@@ -53,6 +58,7 @@ class SettingsDialog(QDialog):
         input_layout.addWidget(input_label)
 
         self.audio_input_selector = QComboBox(self)
+        self.audio_input_selector.setDisabled(True)
         self.audio_input_selector.currentTextChanged.connect(
             self._on_audio_input_changed
         )
@@ -65,6 +71,7 @@ class SettingsDialog(QDialog):
         output_layout.addWidget(output_label)
 
         self.audio_output_selector = QComboBox(self)
+        self.audio_output_selector.setDisabled(True)
         self.audio_output_selector.currentTextChanged.connect(
             self._on_audio_output_changed
         )
@@ -77,6 +84,59 @@ class SettingsDialog(QDialog):
         close_button.clicked.connect(self.accept)
         main_layout.addWidget(close_button, alignment=Qt.AlignRight)
 
+    @staticmethod
+    def _remove_audio_devices_duplicates(
+        devices: List[Tuple[int, str]]
+    ) -> List[Tuple[int, str]]:
+        seen = set()
+        unique_devices = []
+        for device_index, device_name in devices:
+            if device_name not in seen:
+                seen.add(device_name)
+                unique_devices.append((device_index, device_name))
+
+        return unique_devices
+
+    def populate_audio_devices(self):
+        self.ignore_audio_selection = True
+
+        input_devices = AudioDevices.get_audio_input_devices()
+        output_devices = AudioDevices.get_audio_output_devices()
+
+        default_input_device = AudioDevices.get_default_audio_input_device()
+        default_output_device = AudioDevices.get_default_audio_output_device()
+
+        input_devices = self._remove_audio_devices_duplicates(input_devices)
+        output_devices = self._remove_audio_devices_duplicates(output_devices)
+
+        self.audio_input_selector.clear()
+        self.audio_output_selector.clear()
+
+        self.audio_input_selector.addItem(f"Default ({default_input_device[1]})")
+        self.audio_output_selector.addItem(f"Default ({default_output_device[1]})")
+
+        for device_index, device_name in input_devices:
+            self.audio_input_selector.addItem(device_name, userData=device_index)
+
+        for device_index, device_name in output_devices:
+            self.audio_output_selector.addItem(device_name, userData=device_index)
+
+        if self.settings.transcription.mic.device_index is not None:
+            mic_device_index = self.settings.transcription.mic.device_index
+            for index, name in input_devices:
+                if index == mic_device_index:
+                    self.audio_input_selector.setCurrentText(name)
+                    break
+
+        if self.settings.transcription.speaker.device_index is not None:
+            speaker_device_index = self.settings.transcription.speaker.device_index
+            for index, name in output_devices:
+                if index == speaker_device_index:
+                    self.audio_output_selector.setCurrentText(name)
+                    break
+
+        self.ignore_audio_selection = False
+
     def _on_theme_changed(self, theme: str):
         theme = Theme(theme.lower())
         self.settings.theme = theme
@@ -86,18 +146,44 @@ class SettingsDialog(QDialog):
     def set_current_theme(self, theme: Theme):
         self.theme_selector.setCurrentText(theme.value.capitalize())
 
+    def lock_audio_input_selection(self):
+        self.audio_input_selector.setDisabled(True)
+
+    def lock_audio_output_selection(self):
+        self.audio_output_selector.setDisabled(True)
+
+    def unlock_audio_input_selection(self):
+        self.audio_input_selector.setDisabled(False)
+
+    def unlock_audio_output_selection(self):
+        self.audio_output_selector.setDisabled(False)
+
     def _on_audio_input_changed(self, device_name: str):
-        print("Audio input changed to:", device_name)
+        if self.ignore_audio_selection:
+            return
+
+        if device_name.startswith("Default"):
+            self.settings.transcription.mic.device_index = None
+        else:
+            self.settings.transcription.mic.device_index = (
+                self.audio_input_selector.currentData()
+            )
+
+        self.lock_audio_input_selection()
+        self.audio_input_changed.emit()
         self.settings.save()
 
     def _on_audio_output_changed(self, device_name: str):
-        print("Audio output changed to:", device_name)
+        if self.ignore_audio_selection:
+            return
+
+        if device_name.startswith("Default"):
+            self.settings.transcription.speaker.device_index = None
+        else:
+            self.settings.transcription.speaker.device_index = (
+                self.audio_output_selector.currentData()
+            )
+
+        self.lock_audio_output_selection()
+        self.audio_output_changed.emit()
         self.settings.save()
-
-    def set_audio_input_devices(self, devices: List[str]):
-        self.audio_input_selector.clear()
-        self.audio_input_selector.addItems(devices)
-
-    def set_audio_output_devices(self, devices: List[str]):
-        self.audio_output_selector.clear()
-        self.audio_output_selector.addItems(devices)
