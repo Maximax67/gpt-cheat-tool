@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from groq import Groq
-from typing import Optional, TypedDict, Callable, List
+from enum import Enum
+from typing import Dict, Optional, Type, TypedDict, Callable, List
+
+from services.groq import groq_client
 
 
 class ChatMessageDict(TypedDict):
@@ -24,19 +26,21 @@ class GroqTextGenerator(AbstractTextGenerator):
 
     def __init__(
         self,
-        client: Groq,
-        default_model: str,
-        temperature=0.5,
-        max_tokens=1024,
-        top_p=1.0,
+        model: str,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
         stream=True,
+        timeout=30.0,
+        client=groq_client,
     ):
         self.client = client
-        self.default_model = default_model
+        self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.stream = stream
+        self.timeout = timeout
 
     def generate_text(
         self,
@@ -47,7 +51,7 @@ class GroqTextGenerator(AbstractTextGenerator):
     ) -> None:
         try:
             if not model:
-                model = self.default_model
+                model = self.model
 
             stream = self.client.chat.completions.create(
                 messages=chat_history,
@@ -57,6 +61,7 @@ class GroqTextGenerator(AbstractTextGenerator):
                 top_p=self.top_p,
                 stream=self.stream,
                 reasoning_format="hidden",
+                timeout=self.timeout,
             )
 
             for chunk in stream:
@@ -68,3 +73,22 @@ class GroqTextGenerator(AbstractTextGenerator):
             completed_callback(e)
         else:
             completed_callback(None)
+
+
+class TextGeneratorProvider(Enum):
+    GROQ = "Groq"
+
+
+TEXT_GENERATORS: Dict[TextGeneratorProvider, Type[AbstractTextGenerator]] = {
+    TextGeneratorProvider.GROQ: GroqTextGenerator,
+}
+
+
+def get_text_generator(
+    generator_provider: TextGeneratorProvider, *args, **kwargs
+) -> AbstractTextGenerator:
+    generator_class = TEXT_GENERATORS.get(generator_provider)
+    if not generator_class:
+        raise ValueError(f"Unsupported text generator provider: {generator_provider}")
+
+    return generator_class(*args, **kwargs)

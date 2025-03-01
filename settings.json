@@ -1,31 +1,41 @@
 {
     "chat": {
         "text_generator": {
+            "provider": "Groq",
             "prompt": null,
             "message_context": 5,
             "model": "deepseek-r1-distill-llama-70b",
-            "temperature": 0.5,
-            "max_tokens": 1024,
-            "top_p": 1.0,
-            "stream": true
+            "temperature": null,
+            "max_tokens": null,
+            "top_p": null,
+            "stream": true,
+            "timeout": 30.0
         }
     },
     "quick_answers": {
         "default_message": "Welcome to ChatGPT cheat tool!",
         "text_generator": {
+            "provider": "Groq",
             "prompt": null,
             "message_context": 5,
             "model": "deepseek-r1-distill-llama-70b",
-            "temperature": 0.5,
-            "max_tokens": 1024,
-            "top_p": 1.0,
-            "stream": true
+            "temperature": null,
+            "max_tokens": null,
+            "top_p": null,
+            "stream": true,
+            "timeout": 30.0
         }
     },
     "transcription": {
         "speaker": {
             "device_index": null,
-            "model": "whisper-large-v3-turbo",
+            "transcriber": {
+                "provider": "Groq",
+                "model": "whisper-large-v3-turbo",
+                "language": null,
+                "temperature": null,
+                "timeout": 30.0
+            },
             "phrase_timeout": 5.0,
             "max_phrase_length": 17.0,
             "record_timeout": 4.0,
@@ -39,7 +49,13 @@
         },
         "mic": {
             "device_index": null,
-            "model": "whisper-large-v3-turbo",
+            "transcriber": {
+                "provider": "Groq",
+                "model": "whisper-large-v3-turbo",
+                "language": null,
+                "temperature": null,
+                "timeout": 30.0
+            },
             "phrase_timeout": 5.0,
             "max_phrase_length": 17.0,
             "record_timeout": 4.0,

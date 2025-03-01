@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QMainWindow, QSplitter, QWidget, QHBoxLayout, QVBo
 from PySide6.QtCore import Qt
 
 from services.generate_text.ChatController import ChatController
-from services.generate_text.TextGenerator import GroqTextGenerator
+from services.generate_text.TextGenerator import GroqTextGenerator, get_text_generator
 from services.groq import groq_client
 
 from settings import AppSettings
@@ -44,13 +44,14 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(splitter_horizontal)
 
         chat_text_gen = self.settings.chat.text_generator
-        chat_text_generator = GroqTextGenerator(
-            groq_client,
-            chat_text_gen.model,
-            chat_text_gen.temperature,
-            chat_text_gen.max_tokens,
-            chat_text_gen.top_p,
-            chat_text_gen.stream,
+        chat_text_generator = get_text_generator(
+            chat_text_gen.provider,
+            model=chat_text_gen.model,
+            temperature=chat_text_gen.temperature,
+            max_tokens=chat_text_gen.max_tokens,
+            top_p=chat_text_gen.top_p,
+            stream=chat_text_gen.stream,
+            timeout=chat_text_gen.timeout,
         )
         chat_controller = ChatController(
             chat_text_generator, chat_text_gen.prompt, chat_text_gen.message_context
@@ -68,13 +69,14 @@ class MainWindow(QMainWindow):
         splitter_vertical = QSplitter(Qt.Vertical)
 
         qa_text_gen = self.settings.quick_answers.text_generator
-        quick_answer_text_generator = GroqTextGenerator(
-            groq_client,
-            qa_text_gen.model,
-            qa_text_gen.temperature,
-            qa_text_gen.max_tokens,
-            qa_text_gen.top_p,
-            qa_text_gen.stream,
+        quick_answer_text_generator = get_text_generator(
+            qa_text_gen.provider,
+            model=qa_text_gen.model,
+            temperature=qa_text_gen.temperature,
+            max_tokens=qa_text_gen.max_tokens,
+            top_p=qa_text_gen.top_p,
+            stream=qa_text_gen.stream,
+            timeout=qa_text_gen.timeout,
         )
         self.quick_answer_panel = QuickAnswerPanel(
             quick_answer_text_generator,

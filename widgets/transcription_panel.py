@@ -14,7 +14,7 @@ from services.record_audio.AudioRecorder import (
     MicRecorder,
     SpeakerRecorder,
 )
-from services.transcribe.Transcriber import GroqTranscriber
+from services.transcribe.Transcriber import GroqTranscriber, get_transcriber
 from services.groq import groq_client
 
 from settings import TranscriptionSettings
@@ -175,9 +175,22 @@ class TranscriptionPanel(QWidget):
         self.mic_audio_queue: deque[Tuple[datetime, bytes]] = deque()
         self.speaker_audio_queue: deque[Tuple[datetime, bytes]] = deque()
 
-        self.mic_transcriber = GroqTranscriber(groq_client, self.settings.mic.model)
-        self.speaker_transcriber = GroqTranscriber(
-            groq_client, self.settings.speaker.model
+        mic_transcriber_settings = self.settings.mic.transcriber
+        speaker_transcriber_settings = self.settings.speaker.transcriber
+
+        self.mic_transcriber = get_transcriber(
+            mic_transcriber_settings.provider,
+            model=mic_transcriber_settings.model,
+            language=mic_transcriber_settings.language,
+            temperature=mic_transcriber_settings.temperature,
+            timeout=mic_transcriber_settings.timeout,
+        )
+        self.speaker_transcriber = get_transcriber(
+            speaker_transcriber_settings.provider,
+            model=speaker_transcriber_settings.model,
+            language=speaker_transcriber_settings.language,
+            temperature=speaker_transcriber_settings.temperature,
+            timeout=speaker_transcriber_settings.timeout,
         )
 
         self._init_mic_recorder()

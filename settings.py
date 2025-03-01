@@ -1,17 +1,30 @@
 import os
 from pydantic import BaseModel, ValidationError
 from typing import Optional
+
+from services.generate_text.TextGenerator import TextGeneratorProvider
+from services.transcribe.Transcriber import TranscriberProvider
 from ui.themes import Theme
 
 
 class TextGeneratorSettings(BaseModel):
+    provider: TextGeneratorProvider = TextGeneratorProvider.GROQ
     prompt: Optional[str] = None
     message_context: Optional[int] = 5
     model: str = "deepseek-r1-distill-llama-70b"
-    temperature: float = 0.5
-    max_tokens: int = 1024
-    top_p: float = 1
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    top_p: Optional[float] = None
     stream: bool = True
+    timeout: float = 30.0
+
+
+class TranscriberSettings(BaseModel):
+    provider: TranscriberProvider = TranscriberProvider.GROQ
+    model: str = "whisper-large-v3-turbo"
+    language: Optional[str] = None
+    temperature: Optional[float] = None
+    timeout: float = 30.0
 
 
 class QuickAnswersSettings(BaseModel):
@@ -31,7 +44,7 @@ class AudioDeviceMessageSettings(BaseModel):
 
 class AudioDeviceSettings(BaseModel):
     device_index: Optional[int] = None
-    model: str = "whisper-large-v3-turbo"
+    transcriber: TranscriberSettings = TranscriberSettings()
     phrase_timeout: float = 5.0
     max_phrase_length: float = 17.0
     record_timeout: float = 4.0
