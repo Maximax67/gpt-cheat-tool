@@ -1,5 +1,3 @@
-import os
-import platform
 import subprocess
 from typing import List, Tuple
 
@@ -14,7 +12,9 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 from PySide6.QtCore import Qt, Signal
-from services.record_audio.AudioDevices import AudioDevices
+
+from utils.AudioDevices import AudioDevices
+from utils.platform import CURRENT_PLATFORM, Platform
 from settings import AppSettings
 from ui.themes import Theme
 
@@ -124,10 +124,9 @@ class SettingsDialog(QDialog):
     def _open_config_file(self):
         settings_path = self.settings.default_settings_path
         try:
-            current_platform = platform.system()
-            if current_platform == "Windows":
+            if CURRENT_PLATFORM == Platform.WINDOWS:
                 subprocess.Popen(["notepad", settings_path], shell=True)
-            elif current_platform == "Darwin":
+            elif CURRENT_PLATFORM == Platform.MACOS:
                 subprocess.Popen(["open", settings_path])
             else:
                 subprocess.Popen(["xdg-open", settings_path])
@@ -203,6 +202,7 @@ class SettingsDialog(QDialog):
         self.settings.theme = theme
         self.set_theme_signal.emit(theme)
         self.settings.save()
+        self.close_button.setFocus()
 
     def set_current_theme(self, theme: Theme):
         self.theme_selector.setCurrentText(theme.value.capitalize())
@@ -233,6 +233,7 @@ class SettingsDialog(QDialog):
         self.lock_audio_input_selection()
         self.audio_input_changed.emit()
         self.settings.save()
+        self.close_button.setFocus()
 
     def _on_audio_output_changed(self, device_name: str):
         if self.ignore_audio_selection:
@@ -248,3 +249,4 @@ class SettingsDialog(QDialog):
         self.lock_audio_output_selection()
         self.audio_output_changed.emit()
         self.settings.save()
+        self.close_button.setFocus()
