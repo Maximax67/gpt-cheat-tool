@@ -1,5 +1,6 @@
-pyside6
 markdown
-pyaudiowpatch
-pyqtdarktheme
+pyaudio; sys_platform != "win32" # Linux and macOS-specific dependency
+pyaudiowpatch; sys_platform == "win32" # Windows-specific dependency
 pydantic
+pyqtdarktheme
+pyside6

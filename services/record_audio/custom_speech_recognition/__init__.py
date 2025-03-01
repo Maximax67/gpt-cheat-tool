@@ -11,23 +11,18 @@ import aifc
 import math
 import audioop
 import collections
-import json
 import threading
-import uuid
+import platform
 
 __author__ = "Anthony Zhang (Uberi)"
 __version__ = "3.10.0"
 __license__ = "BSD"
 
-from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
-
 from .audio import AudioData, get_flac_converter
-from .exceptions import (
-    RequestError,
-    UnknownValueError,
-    WaitTimeoutError,
-)
+
+
+class WaitTimeoutError(Exception):
+    pass
 
 
 class AudioSource(object):
@@ -122,7 +117,10 @@ class Microphone(AudioSource):
         Imports the pyaudio module and checks its version. Throws exceptions if pyaudio can't be found or a wrong version is installed
         """
         try:
-            import pyaudiowpatch as pyaudio
+            if platform.system() == "Windows":
+                import pyaudiowpatch as pyaudio
+            else:
+                import pyaudio
         except ImportError:
             raise AttributeError("Could not find PyAudio; check installation")
         from distutils.version import LooseVersion
@@ -133,6 +131,7 @@ class Microphone(AudioSource):
                     pyaudio.__version__
                 )
             )
+
         return pyaudio
 
     @staticmethod

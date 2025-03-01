@@ -13,7 +13,7 @@
         }
     },
     "quick_answers": {
-        "default_message": "Welcome to ChatGPT cheat tool!",
+        "default_message": "Welcome to the ChatGPT cheat tool!",
         "text_generator": {
             "provider": "Groq",
             "prompt": null,

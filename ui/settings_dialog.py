@@ -1,4 +1,8 @@
+import os
+import platform
+import subprocess
 from typing import List, Tuple
+
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -7,6 +11,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QComboBox,
     QGroupBox,
+    QMessageBox,
 )
 from PySide6.QtCore import Qt, Signal
 from services.record_audio.AudioDevices import AudioDevices
@@ -80,9 +85,65 @@ class SettingsDialog(QDialog):
 
         main_layout.addWidget(audio_group)
 
-        close_button = QPushButton("Close", self)
-        close_button.clicked.connect(self.accept)
-        main_layout.addWidget(close_button, alignment=Qt.AlignRight)
+        buttons_layout = QHBoxLayout()
+
+        about_button = QPushButton("About", self)
+        about_button.clicked.connect(self._show_about_dialog)
+        buttons_layout.addWidget(about_button)
+
+        config_button = QPushButton("Open Config", self)
+        config_button.clicked.connect(self._open_config_file)
+        buttons_layout.addWidget(config_button)
+
+        reset_button = QPushButton("Reset Settings", self)
+        reset_button.clicked.connect(self._reset_settings)
+        buttons_layout.addWidget(reset_button)
+
+        self.close_button = QPushButton("Close", self)
+        self.close_button.setDefault(True)
+        self.close_button.setFocus()
+        self.close_button.clicked.connect(self.accept)
+        buttons_layout.addWidget(self.close_button)
+
+        main_layout.addLayout(buttons_layout)
+
+    def _show_about_dialog(self):
+        about_text = (
+            "<h2>About GPT Cheat Tool</h2>"
+            "<p><b>Author:</b> Bielikov Maksym</p>"
+            "<p><b>Email:</b> <a href='mailto:maximax6767@gmail.com'>maximax6767@gmail.com</a></p>"
+            "<p><b>Source code:</b> <a href='https://github.com/Maximax67/gpt-cheat-tool'>https://github.com/Maximax67/gpt-cheat-tool</a></p>"
+            "<p>This app is a real-time audio transcription tool that listens to both your microphone and speakers. "
+            "It uses the LLM model to generate answers, making it ideal for cheating during interviews or exams. But perhaps you can find a more ethical use for it. "
+            "Currently only Groq platform is supported. This application has only been tested on Windows, there may be problems running on other OS. This app is open-source and totally free to use! Licensed under the MIT License.</p>"
+            "<p>Feedback is always welcome! Feel free to check out the source code or reach out if you have questions.</p>"
+        )
+        QMessageBox.about(self, "About", about_text)
+        self.close_button.setFocus()
+
+    def _open_config_file(self):
+        settings_path = self.settings.default_settings_path
+        try:
+            current_platform = platform.system()
+            if current_platform == "Windows":
+                subprocess.Popen(["notepad", settings_path], shell=True)
+            elif current_platform == "Darwin":
+                subprocess.Popen(["open", settings_path])
+            else:
+                subprocess.Popen(["xdg-open", settings_path])
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not open config file: {e}")
+
+        self.close_button.setFocus()
+
+    def _reset_settings(self):
+        self.settings = self.settings.reset()
+        QMessageBox.information(
+            self,
+            "Settings Reset",
+            "Settings have been reset to defaults. Please restart the application for changes to take effect.",
+        )
+        self.close_button.setFocus()
 
     @staticmethod
     def _remove_audio_devices_duplicates(

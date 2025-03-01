@@ -1,6 +1,6 @@
 import os
 from pydantic import BaseModel, ValidationError
-from typing import Optional
+from typing import ClassVar, Optional
 
 from services.generate_text.TextGenerator import TextGeneratorProvider
 from services.transcribe.Transcriber import TranscriberProvider
@@ -28,7 +28,7 @@ class TranscriberSettings(BaseModel):
 
 
 class QuickAnswersSettings(BaseModel):
-    default_message: str = "Welcome to ChatGPT cheat tool!"
+    default_message: str = "Welcome to the ChatGPT cheat tool!"
     text_generator: TextGeneratorSettings = TextGeneratorSettings()
 
 
@@ -64,12 +64,21 @@ class AppSettings(BaseModel):
     transcription: TranscriptionSettings = TranscriptionSettings()
     theme: Theme = Theme.AUTO
 
-    def save(self, file_path: str = "settings.json"):
+    default_settings_path: ClassVar[str] = "settings.json"
+
+    def save(self, file_path: str = default_settings_path):
         with open(file_path, "w") as f:
             f.write(self.model_dump_json(indent=4))
 
+    @staticmethod
+    def reset(file_path: str = default_settings_path):
+        default_settings = AppSettings()
+        default_settings.save(file_path)
+
+        return default_settings
+
     @classmethod
-    def load(cls, file_path: str = "settings.json"):
+    def load(cls, file_path: str = default_settings_path):
         if not os.path.exists(file_path):
             default_settings = cls()
             default_settings.save(file_path)

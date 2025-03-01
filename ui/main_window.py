@@ -1,11 +1,8 @@
-import os
-
 from PySide6.QtWidgets import QMainWindow, QSplitter, QWidget, QHBoxLayout, QVBoxLayout
 from PySide6.QtCore import Qt
 
 from services.generate_text.ChatController import ChatController
-from services.generate_text.TextGenerator import GroqTextGenerator, get_text_generator
-from services.groq import groq_client
+from services.generate_text.TextGenerator import get_text_generator
 
 from settings import AppSettings
 from widgets.chat_panel import ChatPanel
@@ -31,7 +28,7 @@ class MainWindow(QMainWindow):
         self._setup_ui()
 
     def _setup_ui(self):
-        self.setWindowTitle("Groq Audio Transcription & Chat")
+        self.setWindowTitle("GPT Cheat Tool")
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         main_layout = QHBoxLayout(main_widget)

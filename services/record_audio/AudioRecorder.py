@@ -1,8 +1,8 @@
-import pyaudiowpatch as pyaudio
+import platform
 
 from collections import deque
 from datetime import datetime
-from typing import Tuple
+from typing import Optional, Tuple
 
 import services.record_audio.custom_speech_recognition as sr
 from services.record_audio.AudioSourceType import AudioSourceType
@@ -71,6 +71,7 @@ class MicRecorder(BaseRecorder):
         energy_threshold: float = 1000,
         dynamic_energy_threshold: bool = False,
     ):
+        pyaudio = sr.Microphone.get_pyaudio()
         with pyaudio.PyAudio() as p:
             if device_index is None:
                 device_index = p.get_default_input_device_info()["index"]
@@ -98,32 +99,23 @@ class SpeakerRecorder(BaseRecorder):
         energy_threshold: float = 1000,
         dynamic_energy_threshold: bool = False,
     ):
-        with pyaudio.PyAudio() as p:
-            wasapi_info = p.get_host_api_info_by_type(pyaudio.paWASAPI)
-            default_speakers = (
-                p.get_device_info_by_index(wasapi_info["defaultOutputDevice"])
-                if device_index is None
-                else p.get_device_info_by_index(device_index)
+        pyaudio_instance = sr.Microphone.get_pyaudio()
+        current_platform = platform.system()
+
+        with pyaudio_instance.PyAudio() as p:
+            device_index, device_name = self._select_device(
+                p, current_platform, device_index
             )
-
-            if not default_speakers.get("isLoopbackDevice", False):
-                for loopback in p.get_loopback_device_info_generator():
-                    if default_speakers["name"] in loopback["name"]:
-                        default_speakers = loopback
-                        break
-                else:
-                    raise RuntimeError("No loopback device found.")
-
-            device_index = default_speakers["index"]
-            device_name = default_speakers["name"]
+            device_info = p.get_device_info_by_index(device_index)
 
         source = sr.Microphone(
             speaker=True,
             device_index=device_index,
-            sample_rate=int(default_speakers["defaultSampleRate"]),
-            chunk_size=pyaudio.get_sample_size(pyaudio.paInt16),
-            channels=default_speakers["maxInputChannels"],
+            sample_rate=int(device_info["defaultSampleRate"]),
+            chunk_size=pyaudio_instance.get_sample_size(pyaudio_instance.paInt16),
+            channels=device_info["maxInputChannels"],
         )
+
         super().__init__(
             source,
             device_name,
@@ -131,3 +123,76 @@ class SpeakerRecorder(BaseRecorder):
             energy_threshold,
             dynamic_energy_threshold,
         )
+
+    @staticmethod
+    def _select_device(p, current_platform: str, device_index: Optional[int]):
+        if current_platform == "Windows":
+            return SpeakerRecorder._select_windows(p, device_index)
+        elif current_platform == "Darwin":
+            return SpeakerRecorder._select_darwin(p, device_index)
+        elif current_platform == "Linux":
+            return SpeakerRecorder._select_linux(p, device_index)
+        else:
+            raise RuntimeError(f"Unsupported platform: {current_platform}")
+
+    @staticmethod
+    def _select_windows(p, device_index: Optional[int]):
+        pa = sr.Microphone.get_pyaudio()
+        wasapi_info = p.get_host_api_info_by_type(pa.paWASAPI)
+        default_speakers = (
+            p.get_device_info_by_index(wasapi_info["defaultOutputDevice"])
+            if device_index is None
+            else p.get_device_info_by_index(device_index)
+        )
+
+        if not default_speakers.get("isLoopbackDevice", False):
+            for loopback in p.get_loopback_device_info_generator():
+                if default_speakers["name"] in loopback["name"]:
+                    default_speakers = loopback
+                    break
+            else:
+                raise RuntimeError("No loopback device found.")
+
+        return default_speakers["index"], default_speakers["name"]
+
+    @staticmethod
+    def _select_darwin(p, device_index: Optional[int]):
+        predicate = (
+            lambda info: "BlackHole" in info["name"] or "Soundflower" in info["name"]
+        )
+        if device_index is None:
+            for i in range(p.get_device_count()):
+                info = p.get_device_info_by_index(i)
+                if predicate(info):
+                    return info["index"], info["name"]
+            raise RuntimeError(
+                "No virtual loopback device found. Install BlackHole or Soundflower."
+            )
+        else:
+            info = p.get_device_info_by_index(device_index)
+            if predicate(info):
+                return info["index"], info["name"]
+            else:
+                raise RuntimeError(
+                    "Selected audio device is not a BlackHole or Soundflower source"
+                )
+
+    @staticmethod
+    def _select_linux(p, device_index: Optional[int]):
+        predicate = lambda info: "monitor" in info["name"].lower()
+        if device_index is None:
+            for i in range(p.get_device_count()):
+                info = p.get_device_info_by_index(i)
+                if predicate(info):
+                    return info["index"], info["name"]
+            raise RuntimeError(
+                "No PulseAudio monitor source found. Run 'pactl list sources' to check."
+            )
+        else:
+            info = p.get_device_info_by_index(device_index)
+            if predicate(info):
+                return info["index"], info["name"]
+            else:
+                raise RuntimeError(
+                    "Selected audio device is not a PulseAudio monitor source"
+                )

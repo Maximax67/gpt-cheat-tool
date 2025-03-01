@@ -14,8 +14,7 @@ from services.record_audio.AudioRecorder import (
     MicRecorder,
     SpeakerRecorder,
 )
-from services.transcribe.Transcriber import GroqTranscriber, get_transcriber
-from services.groq import groq_client
+from services.transcribe.Transcriber import get_transcriber
 
 from settings import TranscriptionSettings
 from widgets.transcription_list import SelectionStates, TranscriptionListWidget
