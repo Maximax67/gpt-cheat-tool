@@ -1,8 +1,8 @@
 import threading
 from typing import List, Optional, Callable, Tuple
 
-from services.generate_text.Message import ChatMessage, ChatMessageRole
-from services.generate_text.TextGenerator import (
+from services.generate_text.message import ChatMessage, ChatMessageRole
+from services.generate_text.text_generator import (
     AbstractTextGenerator,
     ChatMessageDict,
 )

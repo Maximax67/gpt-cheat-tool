@@ -14,9 +14,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from services.generate_text.Message import ChatMessageRole
-from services.generate_text.TextGenerator import AbstractTextGenerator
-from services.record_audio.AudioSourceType import AudioSourceType
+from services.generate_text.message import ChatMessageRole
+from services.generate_text.text_generator import AbstractTextGenerator
+from services.record_audio.audio_source_type import AudioSourceType
 
 from ui.icons import Icon, get_icon
 

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from utils.AudioDevices import AudioDevices
+from utils.audio_devices import AudioDevices
 from utils.platform import CURRENT_PLATFORM, Platform
 from settings import AppSettings
 from ui.themes import Theme

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from services.record_audio.AudioSourceType import AudioSourceType
+from services.record_audio.audio_source_type import AudioSourceType
 from ui.icons import Icon, get_icon
 from ui.themes import ThemeManager
 

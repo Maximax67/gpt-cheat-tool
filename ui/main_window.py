@@ -1,8 +1,8 @@
 from PySide6.QtWidgets import QMainWindow, QSplitter, QWidget, QHBoxLayout, QVBoxLayout
 from PySide6.QtCore import Qt
 
-from services.generate_text.ChatController import ChatController
-from services.generate_text.TextGenerator import get_text_generator
+from services.generate_text.chat_controller import ChatController
+from services.generate_text.text_generator import get_text_generator
 
 from settings import AppSettings
 from widgets.chat_panel import ChatPanel

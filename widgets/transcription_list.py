@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple
 from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout
 from PySide6.QtCore import Qt, QTimer, Signal
-from services.record_audio.AudioSourceType import AudioSourceType
+from services.record_audio.audio_source_type import AudioSourceType
 from widgets.transcription_block import TranscriptionBlockWidget
 
 

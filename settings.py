@@ -2,8 +2,8 @@ import os
 from pydantic import BaseModel, ValidationError
 from typing import ClassVar, Optional
 
-from services.generate_text.TextGenerator import TextGeneratorProvider
-from services.transcribe.Transcriber import TranscriberProvider
+from services.generate_text.text_generator import TextGeneratorProvider
+from services.transcribe.transcriber import TranscriberProvider
 from ui.themes import Theme
 
 

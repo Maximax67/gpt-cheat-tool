@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QTimer
 
-from services.generate_text.Message import ChatMessage
+from services.generate_text.message import ChatMessage
 from widgets.chat_message import ChatMessageWidget
 
 

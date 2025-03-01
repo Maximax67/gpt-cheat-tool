@@ -8,9 +8,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtCore import QMetaObject, Qt, Q_ARG, Slot, QEvent
 
-from services.generate_text.ChatController import ChatController
+from services.generate_text.chat_controller import ChatController
 
-from services.generate_text.Message import ChatMessage, ChatMessageRole
+from services.generate_text.message import ChatMessage, ChatMessageRole
 from ui.icons import Icon, get_icon
 from widgets.chat_messages_list import ChatMessagesListWidget
 

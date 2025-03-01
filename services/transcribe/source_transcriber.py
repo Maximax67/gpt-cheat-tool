@@ -5,7 +5,7 @@ import wave
 from collections import deque
 from typing import Callable, Optional, Tuple
 from datetime import datetime, timedelta
-from services.transcribe.Transcriber import AbstractTranscriber
+from services.transcribe.transcriber import AbstractTranscriber
 
 
 class SourceTranscriber:

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, Tuple
 
 import services.record_audio.custom_speech_recognition as sr
-from services.record_audio.AudioSourceType import AudioSourceType
+from services.record_audio.audio_source_type import AudioSourceType
 
 
 class BaseRecorder:

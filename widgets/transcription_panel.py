@@ -7,14 +7,14 @@ from typing import List, Optional, Tuple
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
 from PySide6.QtCore import Signal, QMetaObject, Qt, Q_ARG, Slot, QThread, QTimer
 
-from services.record_audio.AudioSourceType import AudioSourceType
-from services.transcribe.SourceTranscriber import SourceTranscriber
-from services.record_audio.AudioRecorder import (
+from services.record_audio.audio_source_type import AudioSourceType
+from services.transcribe.source_transcriber import SourceTranscriber
+from services.record_audio.audio_recorder import (
     BaseRecorder,
     MicRecorder,
     SpeakerRecorder,
 )
-from services.transcribe.Transcriber import get_transcriber
+from services.transcribe.transcriber import get_transcriber
 
 from settings import TranscriptionSettings
 from widgets.transcription_list import SelectionStates, TranscriptionListWidget
