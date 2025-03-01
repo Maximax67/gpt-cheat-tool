@@ -2,7 +2,7 @@ import qdarktheme
 from enum import Enum
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QPalette, QColor
+from PySide6.QtGui import QPalette
 
 
 class Theme(Enum):
@@ -14,25 +14,37 @@ class Theme(Enum):
 class ThemeManager:
     def __init__(self, theme: Theme):
         self._theme = theme
-        qdarktheme.setup_theme(theme.value)
+        self._apply_theme(theme)
 
     def set_theme(self, theme: Theme) -> bool:
         if self._theme != theme:
             self._theme = theme
-            qdarktheme.setup_theme(theme.value)
+            self._apply_theme(theme)
 
             return True
 
         return False
 
-    def get_theme(self) -> Theme:
-        return self._theme
+    @staticmethod
+    def _apply_theme(theme: Theme) -> None:
+        app = QApplication.instance()
+        if app is None or not isinstance(app, QApplication):
+            raise RuntimeError("QApplication is not initialized")
+
+        palette = qdarktheme.load_palette(theme.value)
+        app.setPalette(palette)
+
+        stylesheet = qdarktheme.load_stylesheet(theme.value)
+        app.setStyleSheet(stylesheet)
 
     @staticmethod
     def is_white_theme() -> bool:
         app = QApplication.instance()
-        palette: QPalette = app.palette()
-        color: QColor = palette.color(QPalette.ColorRole.Text)
+        if app is None or not isinstance(app, QApplication):
+            raise RuntimeError("QApplication is not initialized")
+
+        palette = app.palette()
+        color = palette.color(QPalette.ColorRole.Text)
 
         # Converting the RGB color values to compute luminance by the following formula:
         # Y = 0.2126 * R + 0.7152 * G + 0.0722 * B
