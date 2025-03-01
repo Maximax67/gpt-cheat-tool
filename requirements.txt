@@ -1,6 +1,9 @@
+groq
 markdown
 pyaudio; sys_platform != "win32" # Linux and macOS-specific dependency
 pyaudiowpatch; sys_platform == "win32" # Windows-specific dependency
 pydantic
 pyqtdarktheme
 pyside6
+python-dotenv
+setuptools
