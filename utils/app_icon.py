@@ -4,21 +4,24 @@ from PySide6.QtWidgets import QApplication
 from assets.icons.icon import icon
 from utils.app_version import APP_VERSION
 from utils.platform import CURRENT_PLATFORM, Platform
+from utils.logging import logger
 
 
-def get_icon() -> QIcon:
+def get_app_icon() -> QIcon:
     pixmap = QPixmap()
     pixmap.loadFromData(icon)
 
     return QIcon(pixmap)
 
 
-def set_icon(app: QApplication):
-    app.setWindowIcon(get_icon())
+def set_app_icon(app: QApplication):
+    app.setWindowIcon(get_app_icon())
 
     # https://stackoverflow.com/a/1552105
     if CURRENT_PLATFORM == Platform.WINDOWS:
-        import ctypes
+        from ctypes import windll
 
         myappid = f"gpt-cheat-tool.{APP_VERSION}"
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+    logger.debug("App icon set successfully")

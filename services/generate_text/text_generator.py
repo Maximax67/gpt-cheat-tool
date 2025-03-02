@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Dict, Optional, Type, TypedDict, Callable, List
+from groq import Groq
 
-from services.groq import groq_client
+from services.groq import GroqClientSingleton
 
 
 class ChatMessageDict(TypedDict):
@@ -32,8 +33,11 @@ class GroqTextGenerator(AbstractTextGenerator):
         top_p: Optional[float] = None,
         stream=True,
         timeout=30.0,
-        client=groq_client,
+        client: Optional[Groq] = None,
     ):
+        if client is None:
+            client = GroqClientSingleton.get_instance()
+
         self.client = client
         self.model = model
         self.temperature = temperature
@@ -69,7 +73,6 @@ class GroqTextGenerator(AbstractTextGenerator):
                 if text_chunk:
                     callback(text_chunk)
         except Exception as e:
-            print(e)
             completed_callback(e)
         else:
             completed_callback(None)

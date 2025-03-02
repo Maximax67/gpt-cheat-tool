@@ -19,6 +19,7 @@ from services.transcribe.transcriber import get_transcriber
 from settings import TranscriptionSettings
 from widgets.transcription_list import SelectionStates, TranscriptionListWidget
 from ui.icons import Icon, get_icon
+from utils.logging import logger
 
 
 class MicInitTask(QThread):
@@ -47,9 +48,10 @@ class MicInitTask(QThread):
                 self.energy_threshold,
                 self.dynamic_energy_threshold,
             )
+            logger.info("Mic initialized")
             self.initialized.emit(mic)
         except Exception as e:
-            print(e)
+            logger.error(f"Mic init error: {e}")
             self.error.emit(str(e))
 
 
@@ -79,9 +81,10 @@ class SpeakerInitTask(QThread):
                 self.energy_threshold,
                 self.dynamic_energy_threshold,
             )
+            logger.info("Speaker initialized")
             self.initialized.emit(speaker)
         except Exception as e:
-            print(e)
+            logger.error(f"Speaker init error: {e}")
             self.error.emit(str(e))
 
 
@@ -98,7 +101,7 @@ class AdjustForNoiseTask(QThread):
             self.recorder.adjust_for_noise()
             self.noise_adjusted.emit()
         except Exception as e:
-            print(e)
+            logger.error(f"Adjusting for noise error: {e}")
             self.error.emit(str(e))
 
 
@@ -171,8 +174,8 @@ class TranscriptionPanel(QWidget):
         main_layout.addLayout(button_layout)
 
     def setup_audio_transcription(self):
-        self.mic_audio_queue: deque[Tuple[datetime, bytes]] = deque()
-        self.speaker_audio_queue: deque[Tuple[datetime, bytes]] = deque()
+        self.mic_audio_queue: deque[Tuple[bytes, datetime]] = deque()
+        self.speaker_audio_queue: deque[Tuple[bytes, datetime]] = deque()
 
         mic_transcriber_settings = self.settings.mic.transcriber
         speaker_transcriber_settings = self.settings.speaker.transcriber
@@ -253,16 +256,16 @@ class TranscriptionPanel(QWidget):
             self.mic_init_thread.start()
 
     def _on_mic_recorder_initialized(self, mic_recorder: MicRecorder):
+        mic_settings = self.settings.mic
         self._update_mic_transcription_message(
-            self.settings.mic.messages.adjust_noise_message
+            mic_settings.messages.adjust_noise_message
         )
 
         self.mic_record_audio = mic_recorder
         self.mic_transcriber = SourceTranscriber(
             self.mic_transcriber,
-            mic_recorder.source.SAMPLE_RATE,
-            mic_recorder.source.SAMPLE_WIDTH,
-            mic_recorder.source.channels,
+            mic_settings.transcriber.sample_rate,
+            mic_settings.transcriber.sample_width,
             self.settings.mic.phrase_timeout,
             self.settings.mic.max_phrase_length,
         )
@@ -323,16 +326,16 @@ class TranscriptionPanel(QWidget):
             self.speaker_init_thread.start()
 
     def _on_speaker_recorder_initialized(self, speaker_recorder: SpeakerRecorder):
+        speaker_settings = self.settings.speaker
         self._update_speaker_transcription_message(
-            self.settings.speaker.messages.adjust_noise_message
+            speaker_settings.messages.adjust_noise_message
         )
 
         self.speaker_record_audio = speaker_recorder
         self.speaker_transcriber = SourceTranscriber(
             self.speaker_transcriber,
-            speaker_recorder.source.SAMPLE_RATE,
-            speaker_recorder.source.SAMPLE_WIDTH,
-            speaker_recorder.source.channels,
+            speaker_settings.transcriber.sample_rate,
+            speaker_settings.transcriber.sample_width,
             self.settings.speaker.phrase_timeout,
             self.settings.speaker.max_phrase_length,
         )
@@ -385,9 +388,11 @@ class TranscriptionPanel(QWidget):
     def update_transcription(self, text: str, is_new_phrase: bool, is_mic: bool):
         source_type = AudioSourceType.MIC if is_mic else AudioSourceType.SPEAKER
         if is_new_phrase:
+            logger.info(f"New transcription ({source_type.value}): {text}")
             self.transcription_list.add_transcription_block(source_type, text)
             return
 
+        logger.info(f"Transcription updated ({source_type.value}): {text}")
         self.transcription_list.update_last_block_text(source_type, text)
 
     def _handle_mic_transcript_update(self, text: str, is_new_phrase: bool):
@@ -414,7 +419,7 @@ class TranscriptionPanel(QWidget):
     def _change_stream_enabled(
         enabled: bool,
         stream: MicRecorder | SpeakerRecorder,
-        queue: deque[Tuple[datetime, bytes]],
+        queue: deque[Tuple[bytes, datetime]],
     ):
         if not enabled:
             stream.stop_recording()

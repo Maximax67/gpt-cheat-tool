@@ -5,6 +5,9 @@ from typing import ClassVar, Optional
 from services.generate_text.text_generator import TextGeneratorProvider
 from services.transcribe.transcriber import TranscriberProvider
 from ui.themes import Theme
+from utils.logging import LoggingLevel
+
+basedir = os.path.dirname(__file__)
 
 
 class TextGeneratorSettings(BaseModel):
@@ -25,6 +28,8 @@ class TranscriberSettings(BaseModel):
     language: Optional[str] = None
     temperature: Optional[float] = None
     timeout: float = 30.0
+    sample_rate: int = 16000
+    sample_width: int = 2
 
 
 class QuickAnswersSettings(BaseModel):
@@ -62,9 +67,10 @@ class AppSettings(BaseModel):
     chat: ChatSettings = ChatSettings()
     quick_answers: QuickAnswersSettings = QuickAnswersSettings()
     transcription: TranscriptionSettings = TranscriptionSettings()
+    logging_level: LoggingLevel = LoggingLevel.INFO
     theme: Theme = Theme.AUTO
 
-    default_settings_path: ClassVar[str] = "settings.json"
+    default_settings_path: ClassVar[str] = os.path.join(basedir, "settings.json")
 
     def save(self, file_path: str = default_settings_path):
         with open(file_path, "w") as f:

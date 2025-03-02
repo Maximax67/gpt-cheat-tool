@@ -1,6 +1,6 @@
 from typing import List, Tuple
 
-from services.record_audio.custom_speech_recognition import Microphone
+import services.record_audio.custom_speech_recognition as sr
 
 
 class AudioDevices:
@@ -9,7 +9,7 @@ class AudioDevices:
         """
         Get the list of audio input devices with their index and name.
         """
-        p = Microphone.get_pyaudio().PyAudio()
+        p = sr.Microphone.get_pyaudio().PyAudio()
         input_devices = []
         for i in range(p.get_device_count()):
             device_info = p.get_device_info_by_index(i)
@@ -25,7 +25,7 @@ class AudioDevices:
         """
         Get the list of audio output devices with their index and name.
         """
-        p = Microphone.get_pyaudio().PyAudio()
+        p = sr.Microphone.get_pyaudio().PyAudio()
         output_devices = []
         for i in range(p.get_device_count()):
             device_info = p.get_device_info_by_index(i)
@@ -41,7 +41,7 @@ class AudioDevices:
         """
         Get the default audio input device.
         """
-        p = Microphone.get_pyaudio().PyAudio()
+        p = sr.Microphone.get_pyaudio().PyAudio()
         default_input_index = p.get_default_input_device_info()["index"]
         default_input_name = p.get_device_info_by_index(default_input_index)["name"]
         p.terminate()
@@ -53,7 +53,7 @@ class AudioDevices:
         """
         Get the default audio output device.
         """
-        p = Microphone.get_pyaudio().PyAudio()
+        p = sr.Microphone.get_pyaudio().PyAudio()
         default_output_index = p.get_default_output_device_info()["index"]
         default_output_name = p.get_device_info_by_index(default_output_index)["name"]
         p.terminate()

@@ -1,24 +1,28 @@
+import os
 from enum import Enum
 from typing import Dict, Tuple
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QPalette, QColor
 from PySide6.QtWidgets import QApplication
 
 
+basedir = os.path.dirname(__file__)
+
+
 class Icon(Enum):
-    COPY = "./assets/icons/copy.svg"
-    MIC_OFF = "./assets/icons/mic-off.svg"
-    MIC_ON = "./assets/icons/mic.svg"
-    REFRESH = "./assets/icons/refresh-cw.svg"
-    SEND = "./assets/icons/send.svg"
-    SETTINGS = "./assets/icons/settings.svg"
-    SELECT_ALL = "./assets/icons/check-square.svg"
-    DELETE = "./assets/icons/trash-2.svg"
-    SPEAKER_ON = "./assets/icons/volume-2.svg"
-    SPEAKER_OFF = "./assets/icons/volume-x.svg"
-    ARROW_LEFT = "./assets/icons/arrow-left.svg"
-    ARROW_RIGHT = "./assets/icons/arrow-right.svg"
-    SHEVRONS_RIGHT = "./assets/icons/chevrons-right.svg"
-    EDIT = "./assets/icons/edit-2.svg"
+    COPY = os.path.join(basedir, "../assets/icons/copy.svg")
+    MIC_OFF = os.path.join(basedir, "../assets/icons/mic-off.svg")
+    MIC_ON = os.path.join(basedir, "../assets/icons/mic.svg")
+    REFRESH = os.path.join(basedir, "../assets/icons/refresh-cw.svg")
+    SEND = os.path.join(basedir, "../assets/icons/send.svg")
+    SETTINGS = os.path.join(basedir, "../assets/icons/settings.svg")
+    SELECT_ALL = os.path.join(basedir, "../assets/icons/check-square.svg")
+    DELETE = os.path.join(basedir, "../assets/icons/trash-2.svg")
+    SPEAKER_ON = os.path.join(basedir, "../assets/icons/volume-2.svg")
+    SPEAKER_OFF = os.path.join(basedir, "../assets/icons/volume-x.svg")
+    ARROW_LEFT = os.path.join(basedir, "../assets/icons/arrow-left.svg")
+    ARROW_RIGHT = os.path.join(basedir, "../assets/icons/arrow-right.svg")
+    SHEVRONS_RIGHT = os.path.join(basedir, "../assets/icons/chevrons-right.svg")
+    EDIT = os.path.join(basedir, "../assets/icons/edit-2.svg")
 
 
 _cached_icons: Dict[Icon, Tuple[QColor, QIcon]] = {}

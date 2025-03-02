@@ -2,7 +2,7 @@ import qdarktheme
 from enum import Enum
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QPalette, QColor
+from PySide6.QtGui import QPalette
 
 
 class Theme(Enum):

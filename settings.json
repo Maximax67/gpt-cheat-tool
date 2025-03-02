@@ -34,7 +34,9 @@
                 "model": "whisper-large-v3-turbo",
                 "language": null,
                 "temperature": null,
-                "timeout": 30.0
+                "timeout": 30.0,
+                "sample_rate": 16000,
+                "sample_width": 2
             },
             "phrase_timeout": 5.0,
             "max_phrase_length": 17.0,
@@ -54,7 +56,9 @@
                 "model": "whisper-large-v3-turbo",
                 "language": null,
                 "temperature": null,
-                "timeout": 30.0
+                "timeout": 30.0,
+                "sample_rate": 16000,
+                "sample_width": 2
             },
             "phrase_timeout": 5.0,
             "max_phrase_length": 17.0,
@@ -68,5 +72,6 @@
             }
         }
     },
+    "logging_level": "INFO",
     "theme": "auto"
 }

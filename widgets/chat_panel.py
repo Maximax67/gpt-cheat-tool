@@ -13,6 +13,7 @@ from services.generate_text.chat_controller import ChatController
 from services.generate_text.message import ChatMessage, ChatMessageRole
 from ui.icons import Icon, get_icon
 from widgets.chat_messages_list import ChatMessagesListWidget
+from utils.logging import logger
 
 
 class ChatPanel(QWidget):
@@ -118,6 +119,7 @@ class ChatPanel(QWidget):
 
         self.is_generating = True
         self.send_button.setDisabled(True)
+        logger.debug(f"Regenerate requested: {message.id}")
         response_message = self.chat_controller.regenerate_message(
             message.id,
             self._handle_update_message,
@@ -129,6 +131,8 @@ class ChatPanel(QWidget):
         parent = message.parent
         if parent is None:
             return
+
+        logger.debug(f"Message thread switched: {message.id}")
 
         if parent.role == ChatMessageRole.SYSTEM:
             self.chat_messages_list.clear_chat()
@@ -146,6 +150,8 @@ class ChatPanel(QWidget):
         parent = message.parent
         if parent is None:
             return
+
+        logger.debug(f"Edit requested: {message.id}")
 
         if parent.role == ChatMessageRole.SYSTEM:
             self.chat_messages_list.clear_chat()
@@ -171,6 +177,8 @@ class ChatPanel(QWidget):
             self.clear_prompt()
 
     def add_user_message(self, text: str):
+        logger.debug("Message sent in chat")
+
         last_message = self.chat_messages_list.get_last_message()
         assistant_message_id = last_message.id if last_message else None
 

@@ -10,6 +10,7 @@ from widgets.quick_answer_panel import QuickAnswerPanel
 from widgets.transcription_panel import TranscriptionPanel
 from widgets.controls_widget_panel import ControlsPanel
 
+from utils.logging import set_logger_level
 from ui.settings_dialog import SettingsDialog
 from ui.themes import Theme, ThemeManager
 
@@ -20,6 +21,7 @@ class MainWindow(QMainWindow):
 
         self.settings: AppSettings = AppSettings.load()
         self.theme_manager = ThemeManager(self.settings.theme)
+        set_logger_level(self.settings.logging_level)
 
         self.settings_dialog = SettingsDialog(self.settings, parent=self)
         self.settings_dialog.set_current_theme(self.settings.theme)

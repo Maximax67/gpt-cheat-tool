@@ -2,8 +2,10 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple
 from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout
 from PySide6.QtCore import Qt, QTimer, Signal
+
 from services.record_audio.audio_source_type import AudioSourceType
 from widgets.transcription_block import TranscriptionBlockWidget
+from utils.logging import logger
 
 
 class SelectionStates(Enum):
@@ -109,6 +111,8 @@ class TranscriptionListWidget(QScrollArea):
         widget.deleteLater()
 
     def remove_block(self, widget: TranscriptionBlockWidget):
+        logger.debug(f"Transcription block removed")
+
         self._remove_widget(widget)
 
         if self._is_all_selected or not self._is_some_selected:

@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, Signal, QTimer
 
 from services.generate_text.message import ChatMessage
 from widgets.chat_message import ChatMessageWidget
+from utils.logging import logger
 
 
 class ChatMessagesListWidget(QScrollArea):
@@ -53,6 +54,8 @@ class ChatMessagesListWidget(QScrollArea):
         self._messages[message.id] = (message_widget, None)
         self.layout.addWidget(message_widget)
 
+        logger.debug(f"Chat message added: {message.id}")
+
         if scroll:
             self.scroll_to_bottom()
 
@@ -66,6 +69,7 @@ class ChatMessagesListWidget(QScrollArea):
     def _remove_widget(self, widget: ChatMessageWidget):
         self.layout.removeWidget(widget)
         widget.deleteLater()
+        logger.debug(f"Message deleted: {widget.message.id}")
 
     def delete_message_thread(self, message_id: int):
         message_data = self._messages.get(message_id)
@@ -85,6 +89,8 @@ class ChatMessagesListWidget(QScrollArea):
             if next_message_id:
                 current_message_id = next_message_id
 
+        logger.debug(f"Message thread deleted: {message_id}")
+
     def clear_chat(self):
         self._messages = {}
         self.last_message_widget = None
@@ -92,6 +98,8 @@ class ChatMessagesListWidget(QScrollArea):
             widget: ChatMessageWidget = self.layout.itemAt(0).widget()
             if widget:
                 self._remove_widget(widget)
+
+        logger.debug("Chat cleared")
 
     def scroll_to_bottom(self):
         QTimer.singleShot(

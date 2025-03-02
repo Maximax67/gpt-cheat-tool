@@ -18,6 +18,7 @@ from services.generate_text.message import ChatMessageRole
 from services.generate_text.text_generator import AbstractTextGenerator
 from services.record_audio.audio_source_type import AudioSourceType
 
+from utils.logging import logger
 from ui.icons import Icon, get_icon
 
 
@@ -148,7 +149,9 @@ class QuickAnswerPanel(QWidget):
                 self.text += str(exception)
                 self.update_label()
 
-            print(self.text)
+            logger.info(f"Quick answer generated: {self.text}")
+
+        logger.debug(f"Quick answer requested")
 
         threading.Thread(
             target=self.text_generator.generate_text,

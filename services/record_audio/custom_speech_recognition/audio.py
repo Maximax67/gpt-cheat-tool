@@ -227,6 +227,7 @@ class AudioData(object):
             )  # specify that the console window should be hidden
         else:
             startup_info = None  # default startupinfo
+
         process = subprocess.Popen(
             [
                 flac_converter,
@@ -240,6 +241,10 @@ class AudioData(object):
             startupinfo=startup_info,
         )
         flac_data, stderr = process.communicate(wav_data)
+
+        if stderr:
+            raise Exception(stderr)
+
         return flac_data
 
 

@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 
 import services.record_audio.custom_speech_recognition as sr
 from services.record_audio.audio_source_type import AudioSourceType
+from utils.logging import logger
 
 
 class BaseRecorder:
@@ -32,17 +33,16 @@ class BaseRecorder:
         self.stopper = None
 
     def adjust_for_noise(self):
-        print(f"[INFO] Adjusting for ambient noise from {self.device_name}.")
+        logger.info(f"Adjusting for ambient noise from {self.device_name}")
 
         with self.source:
             self.recorder.adjust_for_ambient_noise(self.source)
 
-        print(f"[INFO] Completed ambient noise adjustment for {self.device_name}.")
+        logger.info(f"Completed ambient noise adjustment for {self.device_name}")
 
-    def record_into_queue(self, audio_queue: deque[Tuple[datetime, bytes]]):
+    def record_into_queue(self, audio_queue: deque[Tuple[bytes, datetime]]):
         def record_callback(_, audio: sr.AudioData) -> None:
-            data = audio.get_raw_data()
-            audio_queue.append((data, datetime.now()))
+            audio_queue.append((audio.get_raw_data(), datetime.now()))
 
         self.stopper = self.recorder.listen_in_background(
             self.source, record_callback, phrase_time_limit=self.record_timeout

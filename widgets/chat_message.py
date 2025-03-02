@@ -1,5 +1,4 @@
 import markdown
-
 from PySide6.QtWidgets import (
     QWidget,
     QHBoxLayout,

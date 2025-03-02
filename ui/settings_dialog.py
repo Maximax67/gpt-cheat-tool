@@ -16,8 +16,9 @@ from PySide6.QtCore import Qt, Signal
 from utils.app_version import APP_VERSION
 from utils.audio_devices import AudioDevices
 from utils.platform import CURRENT_PLATFORM, Platform
-from settings import AppSettings
+from utils.logging import logger
 from ui.themes import Theme
+from settings import AppSettings
 
 
 class SettingsDialog(QDialog):
@@ -198,6 +199,7 @@ class SettingsDialog(QDialog):
                     break
 
         self.ignore_audio_selection = False
+        logger.debug("Updated list of audio devices")
 
     def _on_theme_changed(self, theme: str):
         theme = Theme(theme.lower())
@@ -205,6 +207,7 @@ class SettingsDialog(QDialog):
         self.set_theme_signal.emit(theme)
         self.settings.save()
         self.close_button.setFocus()
+        logger.debug(f"Theme changed to {theme}")
 
     def set_current_theme(self, theme: Theme):
         self.theme_selector.setCurrentText(theme.value.capitalize())
@@ -233,6 +236,7 @@ class SettingsDialog(QDialog):
             )
 
         self.lock_audio_input_selection()
+        logger.debug(f"Audio input changed to {device_name}")
         self.audio_input_changed.emit()
         self.settings.save()
         self.close_button.setFocus()
@@ -249,6 +253,7 @@ class SettingsDialog(QDialog):
             )
 
         self.lock_audio_output_selection()
+        logger.debug(f"Audio output changed to {device_name}")
         self.audio_output_changed.emit()
         self.settings.save()
         self.close_button.setFocus()

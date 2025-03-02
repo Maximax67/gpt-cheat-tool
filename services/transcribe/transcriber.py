@@ -1,14 +1,14 @@
 from enum import Enum
-from io import BytesIO
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Type
+from groq import Groq
 
-from services.groq import groq_client
+from services.groq import GroqClientSingleton
 
 
 class AbstractTranscriber(ABC):
     @abstractmethod
-    def get_transcription(self, buffer: BytesIO, file_extension: str) -> str:
+    def get_transcription(self, buffer: bytes, file_extension: str) -> str:
         raise NotImplementedError("This is an abstract class")
 
 
@@ -20,8 +20,11 @@ class GroqTranscriber(AbstractTranscriber):
         language: Optional[str] = None,
         temperature: Optional[float] = None,
         timeout=30.0,
-        client=groq_client,
+        client: Optional[Groq] = None,
     ):
+        if client is None:
+            client = GroqClientSingleton.get_instance()
+
         self.client = client
         self.model = model
         self.language = language
@@ -30,10 +33,9 @@ class GroqTranscriber(AbstractTranscriber):
 
     def get_transcription(
         self,
-        buffer: BytesIO,
+        buffer: bytes,
         file_extension: str,
     ) -> str:
-        print("API REQUEST")
         transcription = self.client.audio.transcriptions.create(
             file=(f"a.{file_extension}", buffer),
             model=self.model,
@@ -41,7 +43,6 @@ class GroqTranscriber(AbstractTranscriber):
             temperature=self.temperature,
             timeout=self.timeout,
         )
-        print("API RESPONSE: ", transcription.text)
 
         return transcription.text
 
