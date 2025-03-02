@@ -19,6 +19,7 @@ from services.generate_text.text_generator import AbstractTextGenerator
 from services.record_audio.audio_source_type import AudioSourceType
 
 from utils.logging import logger
+from utils.prompts import QUICK_ANSWER_PROMPT
 from ui.icons import Icon, get_icon
 
 
@@ -37,6 +38,9 @@ class QuickAnswerPanel(QWidget):
         self.setup_ui()
         self.update_theme_ui()
         self.set_text(text)
+
+        if system_message is None:
+            system_message = QUICK_ANSWER_PROMPT
 
         self.text_generator = text_generator
         self.system_message = system_message

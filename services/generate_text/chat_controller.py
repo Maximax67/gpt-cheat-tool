@@ -7,6 +7,8 @@ from services.generate_text.text_generator import (
     ChatMessageDict,
 )
 
+from utils.prompts import CHAT_PROMPT
+
 
 class ChatController:
 
@@ -19,9 +21,10 @@ class ChatController:
         self.text_generator = text_generator
         self.default_message_context = default_message_context
 
-        system_message = ChatMessage(
-            0, system_message if system_message else "", ChatMessageRole.SYSTEM, None
-        )
+        if system_message is None:
+            system_message = CHAT_PROMPT
+
+        system_message = ChatMessage(0, system_message, ChatMessageRole.SYSTEM, None)
         self.messages: List[ChatMessage] = [system_message]
 
     def get_message(self, message_id: int) -> ChatMessage:

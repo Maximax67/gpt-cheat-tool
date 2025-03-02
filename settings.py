@@ -7,8 +7,6 @@ from services.transcribe.transcriber import TranscriberProvider
 from ui.themes import Theme
 from utils.logging import LoggingLevel
 
-basedir = os.path.dirname(__file__)
-
 
 class TextGeneratorSettings(BaseModel):
     provider: TextGeneratorProvider = TextGeneratorProvider.GROQ
@@ -70,7 +68,7 @@ class AppSettings(BaseModel):
     logging_level: LoggingLevel = LoggingLevel.INFO
     theme: Theme = Theme.AUTO
 
-    default_settings_path: ClassVar[str] = os.path.join(basedir, "settings.json")
+    default_settings_path: ClassVar[str] = "settings.json"
 
     def save(self, file_path: str = default_settings_path):
         with open(file_path, "w") as f:
