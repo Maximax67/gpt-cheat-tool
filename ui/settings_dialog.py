@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
+from utils.app_version import APP_VERSION
 from utils.audio_devices import AudioDevices
 from utils.platform import CURRENT_PLATFORM, Platform
 from settings import AppSettings
@@ -117,6 +118,7 @@ class SettingsDialog(QDialog):
             "It uses the LLM model to generate answers, making it ideal for cheating during interviews or exams. But perhaps you can find a more ethical use for it. "
             "Currently only Groq platform is supported. This application has only been tested on Windows, there may be problems running on other OS. This app is open-source and totally free to use! Licensed under the MIT License.</p>"
             "<p>Feedback is always welcome! Feel free to check out the source code or reach out if you have questions.</p>"
+            f"<p>Version: {APP_VERSION}</p>"
         )
         QMessageBox.about(self, "About", about_text)
         self.close_button.setFocus()

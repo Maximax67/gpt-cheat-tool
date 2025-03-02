@@ -2,7 +2,7 @@ import qdarktheme
 from enum import Enum
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QPalette
+from PySide6.QtGui import QPalette, QColor
 
 
 class Theme(Enum):
@@ -14,28 +14,16 @@ class Theme(Enum):
 class ThemeManager:
     def __init__(self, theme: Theme):
         self._theme = theme
-        self._apply_theme(theme)
+        qdarktheme.setup_theme(theme.value)
 
     def set_theme(self, theme: Theme) -> bool:
         if self._theme != theme:
             self._theme = theme
-            self._apply_theme(theme)
+            qdarktheme.setup_theme(theme.value)
 
             return True
 
         return False
-
-    @staticmethod
-    def _apply_theme(theme: Theme) -> None:
-        app = QApplication.instance()
-        if app is None or not isinstance(app, QApplication):
-            raise RuntimeError("QApplication is not initialized")
-
-        palette = qdarktheme.load_palette(theme.value)
-        app.setPalette(palette)
-
-        stylesheet = qdarktheme.load_stylesheet(theme.value)
-        app.setStyleSheet(stylesheet)
 
     @staticmethod
     def is_white_theme() -> bool:

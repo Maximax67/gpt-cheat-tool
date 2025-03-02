@@ -3,7 +3,7 @@ markdown
 pyaudio; sys_platform != "win32" # Linux and macOS-specific dependency
 pyaudiowpatch; sys_platform == "win32" # Windows-specific dependency
 pydantic
-pyqtdarktheme
+pyqtdarktheme>=2.1.0
 pyside6
 python-dotenv
 setuptools

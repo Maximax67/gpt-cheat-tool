@@ -34,9 +34,6 @@ class MainWindow(QMainWindow):
         main_layout = QHBoxLayout(main_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.setMinimumWidth(400)
-        self.setMinimumHeight(400)
-
         splitter_horizontal = QSplitter(Qt.Horizontal)
         main_layout.addWidget(splitter_horizontal)
 
