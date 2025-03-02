@@ -4,7 +4,7 @@ import shutil
 import os
 
 flac_converter_dir = "services/record_audio/custom_speech_recognition"
-datas = [("assets", "assets")]
+datas = [("assets/icons", "assets/icons")]
 
 system, machine = platform.system(), platform.machine()
 
