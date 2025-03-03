@@ -87,6 +87,66 @@ For users interested in distributing the application, you can build standalone e
 
 The excecutable file will be in folder `dist/GPT Cheat Tool`. Please note that this is One-Folder installation. Do not delete `_internal` folder. You can also make one-file build. But you need to edit `app.spec` file by removing COLLECT call and passing all of the scripts, modules and binaries to the EXE instance.
 
+## Hide app window during screen sharing (Windows only)
+
+You can use [Invisiwind](https://github.com/radiantly/Invisiwind) to hide any window during screensharing. The tool performs dll injection to [SetWindowDisplayAffinity](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowdisplayaffinity) to `WDA_EXCLUDEFROMCAPTURE`. It works with any app: Zoom, MS Teams, Discord, OBS, etc. Follow installation [guide](https://github.com/radiantly/Invisiwind?tab=readme-ov-file#how-do-i-install-it). I recommend to use the installer.
+
+### Hide and unhide any window by hotkey
+
+I wrote simple script that hides windows by pressing `Ctrl+M` and unhides them by pressing `Ctrl+K`. To use it follow these steps:
+
+1. Download and install [Invisiwind](https://github.com/radiantly/Invisiwind).
+2. Download and install [AutoHotkey](https://www.autohotkey.com/) v2.0 or above.
+3. Navigate to `C:\Program Files\Invisiwind` and create `script.ahk` file. You can change the filename, but the file extension should be `.ahk`.
+4. Open it using Notepad and paste script below, press `Ctrl+S` to save:
+
+    ```
+    ^m:: 
+    {
+        pid := WinGetPID("A")
+        processName := WinGetTitle("A")
+
+        if (InStr(processName, "Program Manager") or InStr(processName, "File Explorer"))
+        {
+            result := MsgBox("It's not recommended to hide this window: " processName ". Are you    sure you want to continue?", "Hide window", "YesNo Icon! Default2")
+        }
+        else
+        {
+            result := MsgBox("Do you want to hide: " processName " (PID: " pid ")?", "Hide  window", "YesNo Iconi")
+        }
+
+        if (result = "Yes")
+        {
+            Run('Invisiwind.exe --hide ' pid, "C:\Program Files\Invisiwind", "Hide")
+        }
+    }
+
+    ^k:: 
+    {
+        pid := WinGetPID("A")
+        processName := WinGetTitle("A")
+
+        if (InStr(processName, "Program Manager") or InStr(processName, "File Explorer"))
+        {
+            result := MsgBox("If you try to unhide this window, additional system pop ups may   appear: " processName ". Are you sure you want to continue?", "Unhide window",    "YesNo Icon! Default2")
+        }
+        else
+        {
+            result := MsgBox("Do you want to unhide: " processName " (PID: " pid ")?", "Unhide  window", "YesNo Iconi")
+        }
+
+        if (result = "Yes")
+        {
+            Run('Invisiwind.exe --unhide ' pid, "C:\Program Files\Invisiwind", "Hide")
+        }
+    }
+    ```
+
+5. Right click on the file and choose create shortcut option.
+6. Double click on the appeared shourcut on the Desktop.
+
+Now the script is running. Press `Ctrl+M` to hide the current window and `Ctrl+K` to unhide it. You can also remove confirmation message boxes by modifying my script.
+
 ## Configuration
 
 The application's behavior can be customized through the `settings.json` file. Below is a sample configuration:
