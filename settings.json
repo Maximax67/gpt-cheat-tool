@@ -35,8 +35,8 @@
                 "language": null,
                 "temperature": null,
                 "timeout": 30.0,
-                "sample_rate": 16000,
-                "sample_width": 2
+                "convert_sample_rate": 16000,
+                "convert_sample_width": 2
             },
             "phrase_timeout": 5.0,
             "max_phrase_length": 17.0,
@@ -57,8 +57,8 @@
                 "language": null,
                 "temperature": null,
                 "timeout": 30.0,
-                "sample_rate": 16000,
-                "sample_width": 2
+                "convert_sample_rate": 16000,
+                "convert_sample_width": 2
             },
             "phrase_timeout": 5.0,
             "max_phrase_length": 17.0,

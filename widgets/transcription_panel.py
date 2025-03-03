@@ -264,10 +264,13 @@ class TranscriptionPanel(QWidget):
         self.mic_record_audio = mic_recorder
         self.mic_transcriber = SourceTranscriber(
             self.mic_transcriber,
-            mic_settings.transcriber.sample_rate,
-            mic_settings.transcriber.sample_width,
-            self.settings.mic.phrase_timeout,
-            self.settings.mic.max_phrase_length,
+            mic_recorder.source.SAMPLE_RATE,
+            mic_recorder.source.SAMPLE_WIDTH,
+            mic_recorder.source.channels,
+            mic_settings.phrase_timeout,
+            mic_settings.max_phrase_length,
+            mic_settings.transcriber.convert_sample_rate,
+            mic_settings.transcriber.convert_sample_width,
         )
 
         self._mic_adjuct_noise_thread = AdjustForNoiseTask(self.mic_record_audio)
@@ -334,10 +337,13 @@ class TranscriptionPanel(QWidget):
         self.speaker_record_audio = speaker_recorder
         self.speaker_transcriber = SourceTranscriber(
             self.speaker_transcriber,
-            speaker_settings.transcriber.sample_rate,
-            speaker_settings.transcriber.sample_width,
-            self.settings.speaker.phrase_timeout,
-            self.settings.speaker.max_phrase_length,
+            speaker_recorder.source.SAMPLE_RATE,
+            speaker_recorder.source.SAMPLE_WIDTH,
+            speaker_recorder.source.channels,
+            speaker_settings.phrase_timeout,
+            speaker_settings.max_phrase_length,
+            speaker_settings.transcriber.convert_sample_rate,
+            speaker_settings.transcriber.convert_sample_width,
         )
 
         self._speaker_adjuct_noise_thread = AdjustForNoiseTask(

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 import services.record_audio.custom_speech_recognition as sr
 from services.transcribe.transcriber import AbstractTranscriber
+from utils.logging import logger
 
 
 class SourceTranscriber:
@@ -12,14 +13,18 @@ class SourceTranscriber:
     def __init__(
         self,
         transcriber: AbstractTranscriber,
-        sample_rate: int = 16000,
-        sample_width: int = 2,
+        sample_rate: int,
+        sample_width: int,
+        channels: int,
         phrase_timeout: float = 5,
         max_phrase_length: float = 17,
+        convert_sample_rate: Optional[int] = None,
+        convert_sample_width: Optional[int] = None,
     ):
         self.transcriber = transcriber
         self.sample_rate = sample_rate
         self.sample_width = sample_width
+        self.channels = channels
         self.last_sample = bytes()
         self.first_spoken: Optional[datetime] = None
         self.last_spoken: Optional[datetime] = None
@@ -28,6 +33,8 @@ class SourceTranscriber:
         self.queue: deque[Tuple[bytes, datetime]] = deque()
         self.phrase_timeout = phrase_timeout
         self.max_phrase_length = max_phrase_length
+        self.convert_sample_rate = convert_sample_rate
+        self.convert_sample_width = convert_sample_width
 
     def transcribe_audio_queue(
         self,
@@ -69,10 +76,15 @@ class SourceTranscriber:
 
             # Now process the accumulated data for the current phrase.
             try:
-                audio_data = sr.AudioData(data, self.sample_rate, self.sample_width)
-                flac_data = audio_data.get_flac_data()
+                audio_data = sr.AudioData(
+                    self.last_sample, self.sample_rate, self.sample_width
+                )
+                flac_data = audio_data.get_flac_data(
+                    self.convert_sample_rate, self.convert_sample_width, self.channels
+                )
                 text = self.transcriber.get_transcription(flac_data, "flac").strip()
             except Exception as e:
+                logger.error(e)
                 text = ""
 
             if text and text.lower() not in ["you", "thank you.", "."]:

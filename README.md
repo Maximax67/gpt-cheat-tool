@@ -108,7 +108,7 @@ I wrote simple script that hides windows by pressing `Ctrl+M` and unhides them b
 
         if (InStr(processName, "Program Manager") or InStr(processName, "File Explorer"))
         {
-            result := MsgBox("It's not recommended to hide this window: " processName ". Are you    sure you want to continue?", "Hide window", "YesNo Icon! Default2")
+            result := MsgBox("It's not recommended to hide this window: " processName ". Are you sure you want to continue?", "Hide window", "YesNo Icon! Default2")
         }
         else
         {
@@ -128,7 +128,7 @@ I wrote simple script that hides windows by pressing `Ctrl+M` and unhides them b
 
         if (InStr(processName, "Program Manager") or InStr(processName, "File Explorer"))
         {
-            result := MsgBox("If you try to unhide this window, additional system pop ups may   appear: " processName ". Are you sure you want to continue?", "Unhide window",    "YesNo Icon! Default2")
+            result := MsgBox("If you try to unhide this window, additional system pop ups may   appear: " processName ". Are you sure you want to continue?", "Unhide window", "YesNo Icon! Default2")
         }
         else
         {
@@ -189,8 +189,8 @@ The application's behavior can be customized through the `settings.json` file. B
                 "language": null,
                 "temperature": null,
                 "timeout": 30.0,
-                "sample_rate": 16000,
-                "sample_width": 2
+                "convert_sample_rate": 16000,
+                "convert_sample_width": 2
             },
             "phrase_timeout": 5.0,
             "max_phrase_length": 17.0,
@@ -211,8 +211,8 @@ The application's behavior can be customized through the `settings.json` file. B
                 "language": null,
                 "temperature": null,
                 "timeout": 30.0,
-                "sample_rate": 16000,
-                "sample_width": 2
+                "convert_sample_rate": 16000,
+                "convert_sample_width": 2
             },
             "phrase_timeout": 5.0,
             "max_phrase_length": 17.0,

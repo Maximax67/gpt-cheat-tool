@@ -74,12 +74,16 @@ class MicRecorder(BaseRecorder):
         pyaudio = sr.Microphone.get_pyaudio()
         with pyaudio.PyAudio() as p:
             if device_index is None:
-                device_index = p.get_default_input_device_info()["index"]
-                device_name = p.get_default_input_device_info()["name"]
+                device_info = p.get_default_input_device_info()
+                device_index = device_info["index"]
+                device_name = device_info["name"]
             else:
-                device_name = p.get_device_info_by_index(device_index)["name"]
+                device_info = p.get_device_info_by_index(device_index)
+                device_name = device_info["name"]
 
-        source = sr.Microphone(device_index=device_index, sample_rate=16000)
+        source = sr.Microphone(
+            device_index=device_index, sample_rate=int(device_info["defaultSampleRate"])
+        )
         super().__init__(
             source,
             device_name,

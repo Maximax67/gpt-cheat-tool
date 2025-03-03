@@ -17,7 +17,7 @@ class TextGeneratorSettings(BaseModel):
     max_tokens: Optional[int] = None
     top_p: Optional[float] = None
     stream: bool = True
-    timeout: float = 30.0
+    timeout: Optional[float] = 30.0
 
 
 class TranscriberSettings(BaseModel):
@@ -25,9 +25,9 @@ class TranscriberSettings(BaseModel):
     model: str = "whisper-large-v3-turbo"
     language: Optional[str] = None
     temperature: Optional[float] = None
-    timeout: float = 30.0
-    sample_rate: int = 16000
-    sample_width: int = 2
+    timeout: Optional[float] = 30.0
+    convert_sample_rate: Optional[int] = 16000
+    convert_sample_width: Optional[int] = 2
 
 
 class QuickAnswersSettings(BaseModel):

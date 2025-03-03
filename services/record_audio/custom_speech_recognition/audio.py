@@ -191,7 +191,7 @@ class AudioData(object):
                 aiff_writer.close()
         return aiff_data
 
-    def get_flac_data(self, convert_rate=None, convert_width=None):
+    def get_flac_data(self, convert_rate=None, convert_width=None, nchannels=1):
         """
         Returns a byte string representing the contents of a FLAC file containing the audio represented by the ``AudioData`` instance.
 
@@ -213,7 +213,7 @@ class AudioData(object):
             convert_width = 3  # the largest supported sample width is 24-bit, so we'll limit the sample width to that
 
         # run the FLAC converter with the WAV data to get the FLAC data
-        wav_data = self.get_wav_data(convert_rate, convert_width)
+        wav_data = self.get_wav_data(convert_rate, convert_width, nchannels)
         flac_converter = get_flac_converter()
         if (
             os.name == "nt"
