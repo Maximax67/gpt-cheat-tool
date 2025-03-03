@@ -219,6 +219,8 @@ class TranscriptionListWidget(QScrollArea):
             widget: TranscriptionBlockWidget = self.layout.itemAt(i).widget()
             context.append((widget.source, widget.text))
 
+        context.reverse()
+
         return context
 
     def update_theme_ui(self):
