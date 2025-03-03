@@ -36,6 +36,8 @@ class MainWindow(QMainWindow):
         main_layout = QHBoxLayout(main_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
+        self.resize(800, 600)
+
         splitter_horizontal = QSplitter(Qt.Horizontal)
         main_layout.addWidget(splitter_horizontal)
 
@@ -56,6 +58,7 @@ class MainWindow(QMainWindow):
         # Left panel: Chat UI
         self.chat_panel = ChatPanel(chat_controller)
         splitter_horizontal.addWidget(self.chat_panel)
+        splitter_horizontal.setSizes([0])
 
         # Right panel: Quick Answer (top), Transcription (middle) and Control Buttons (bottom)
         right_panel = QWidget()
