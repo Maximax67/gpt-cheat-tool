@@ -262,7 +262,7 @@ class TranscriptionPanel(QWidget):
         )
 
         self.mic_record_audio = mic_recorder
-        self.mic_transcriber = SourceTranscriber(
+        self.mic_source_transcriber = SourceTranscriber(
             self.mic_transcriber,
             mic_recorder.source.SAMPLE_RATE,
             mic_recorder.source.SAMPLE_WIDTH,
@@ -293,7 +293,7 @@ class TranscriptionPanel(QWidget):
             self._mic_init_audio_block = None
 
         self.mic_transcribe_thread = threading.Thread(
-            target=self.mic_transcriber.transcribe_audio_queue,
+            target=self.mic_source_transcriber.transcribe_audio_queue,
             args=(self.mic_audio_queue, self._handle_mic_transcript_update),
         )
         self.mic_transcribe_thread.daemon = True
@@ -335,7 +335,7 @@ class TranscriptionPanel(QWidget):
         )
 
         self.speaker_record_audio = speaker_recorder
-        self.speaker_transcriber = SourceTranscriber(
+        self.speaker_source_transcriber = SourceTranscriber(
             self.speaker_transcriber,
             speaker_recorder.source.SAMPLE_RATE,
             speaker_recorder.source.SAMPLE_WIDTH,
@@ -368,7 +368,7 @@ class TranscriptionPanel(QWidget):
             self._speaker_init_audio_block = None
 
         self.speaker_transcribe_thread = threading.Thread(
-            target=self.speaker_transcriber.transcribe_audio_queue,
+            target=self.speaker_source_transcriber.transcribe_audio_queue,
             args=(self.speaker_audio_queue, self._handle_speaker_transcript_update),
         )
         self.speaker_transcribe_thread.daemon = True
@@ -379,14 +379,14 @@ class TranscriptionPanel(QWidget):
     def retry_mic_init(self):
         self.is_mic_init = False
         if self.mic_transcribe_thread:
-            self.mic_transcriber.stop()
+            self.mic_source_transcriber.stop()
 
         self._init_mic_recorder(True)
 
     def retry_speaker_init(self):
         self.is_speaker_init = False
         if self.speaker_transcribe_thread:
-            self.speaker_transcriber.stop()
+            self.speaker_source_transcriber.stop()
 
         self._init_speaker_recorder(True)
 
